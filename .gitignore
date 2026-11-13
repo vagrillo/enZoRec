@@ -11,3 +11,6 @@ app/build/
 *.apk
 *.aab
 .zcode/
+ios/
+style/
+.kotlin/
