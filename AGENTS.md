@@ -333,6 +333,18 @@ Engine state machine: `IDLE → PREPARING → RECORDING ⇄ PAUSED → STOPPING 
 All state changes go through `_stateFlow`; UI must never read stale fields
 directly.
 
+## 4-bis. Segreti — regola assoluta
+
+**Mai committare chiavi API, token, password o .env.** Se una funzione ha
+bisogno di un provider esterno (es. LLM director via OpenRouter):
+- la chiave si inserisce a runtime nelle impostazioni in-app e si salva SOLO
+  in SharedPreferences locali (mai in file tracciati);
+- per costi di build si può usare `local.properties` (già gitignored) letto
+  via `BuildConfig` solo se strettamente necessario;
+- prima di ogni push, scansione: `git grep -iE "api_key|sk-|Bearer "`.
+- Il progetto di riferimento web TuDirector ha un `.env` con chiavi: NON
+  copiarlo mai in questo repo.
+
 ## 5. Definition of done (per change)
 
 - `gradle assembleDebug testDebugUnitTest` green (20 tests: WAV header, layout
