@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TuRegistri</string>
+
+    <!-- Permessi -->
+    <string name="permission_rationale">TuRegistri ha bisogno di camera e microfono per registrare tutte le videocamere e tutti i microfoni contemporaneamente.</string>
+    <string name="permission_grant">Concedi permessi</string>
+    <string name="permission_missing">Permessi mancanti: l\'app non può registrare.</string>
+    <string name="notification_permission_missing">Senza il permesso notifiche la registrazione in background potrebbe essere interrotta.</string>
+
+    <!-- Stato camera -->
+    <string name="camera_preparing">Preparazione camere…</string>
+    <string name="camera_combo_found">Registro simultaneo: %1$s</string>
+    <string name="camera_combo_back_front">posteriore + frontale</string>
+    <string name="camera_combo_back_back">due posteriori</string>
+    <string name="camera_combo_single">singola camera</string>
+    <string name="camera_concurrent_unsupported">Questo telefono non supporta la registrazione simultanea di più camere. Registro con una sola camera.</string>
+    <string name="camera_open_failed">Impossibile aprire le camere. Riavvia l\'app.</string>
+    <string name="camera_second_failed">La seconda camera non si è aperta: registro con una sola camera.</string>
+
+    <!-- Registrazione -->
+    <string name="rec_start_failed">Avvio registrazione non riuscito: %1$s</string>
+    <string name="rec_stopped_toast">Sessione salvata: %1$s (%2$d file)</string>
+    <string name="recording_in_progress">Registrazione in corso</string>
+    <string name="rec_stop_action">Ferma</string>
+    <string name="session_saved">Sessione salvata</string>
+
+    <!-- Camera picker -->
+    <string name="camera_lane_a">Camera stream A</string>
+    <string name="camera_lane_b">Camera stream B</string>
+    <string name="camera_pick_title_a">Camera per lo stream A (sinistra / sopra / sfondo)</string>
+    <string name="camera_pick_title_b">Camera per lo stream B (destra / sotto / inserto)</string>
+    <string name="camera_pick_auto">Automatica (consigliata)</string>
+    <string name="camera_pick_back_suffix">posteriore</string>
+    <string name="camera_pick_front_suffix">frontale</string>
+    <string name="camera_pair_incompatible">Queste due camere non possono funzionare contemporaneamente su questo telefono.</string>
+    <string name="camera_same_forbidden">Scegli due camere diverse per i due stream.</string>
+
+    <!-- Layout -->
+    <string name="layout_split_v">Split verticale</string>
+    <string name="layout_split_h">Split orizzontale</string>
+    <string name="layout_pip">Picture-in-picture</string>
+    <string name="layout_single_a">Solo camera 1</string>
+    <string name="layout_single_b">Solo camera 2</string>
+    <string name="pip_size_hint">Doppio tocco sull\'inserto per cambiarne la dimensione</string>
+
+    <!-- Menu / impostazioni -->
+    <string name="settings_title">Impostazioni</string>
+    <string name="settings_resolution">Risoluzione camere</string>
+    <string name="settings_resolution_720">720p (garantita in simultanea)</string>
+    <string name="settings_resolution_1080">1080p (best effort)</string>
+    <string name="settings_mirror_front">Specchia anteprima frontale</string>
+    <string name="settings_composite_audio">Audio nel video composito</string>
+    <string name="settings_fit_frame">Adatta il fotogramma intero nei pannelli (niente ritaglio)</string>
+    <string name="settings_composite_note">Il composito è 720×1280 @30 fps, H.264 + AAC.</string>
+    <string name="sessions_title">Sessioni</string>
+    <string name="sessions_empty">Nessuna sessione registrata</string>
+    <string name="sessions_files_suffix">%1$d file · %2$s</string>
+    <string name="share_session">Condividi sessione</string>
+    <string name="share_file">Condividi</string>
+    <string name="close">Chiudi</string>
+    <string name="split_service_desc">Consente a YouRec di attivare automaticamente lo split screen per la modalità Screen display.</string>
+    <string name="split_service_summary">Split screen automatico</string>
+    <string name="delete">Elimina</string>
+    <string name="delete_confirm">Eliminare la sessione %1$s?</string>
+
+    <!-- Varie -->
+    <string name="mic_count_label">Audio: %1$s</string>
+    <string name="error_generic">Errore: %1$s</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Annulla</string>
+</resources>
