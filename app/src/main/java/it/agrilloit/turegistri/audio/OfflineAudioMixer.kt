@@ -47,6 +47,10 @@ class OfflineAudioMixer(
         val startOnTimelineMs: Long,
         val volume: Float,
         val muted: Boolean,
+        /** Finestra sorgente (per l'audio staccato da un clip); MAX_VALUE = tutto. */
+        val srcTrimStartMs: Long = 0,
+        val srcTrimEndMs: Long = -1,
+        val speed: Float = 1f,
     )
 
     enum class BeepWave { SINE, TRIANGLE, SQUARE }
@@ -119,7 +123,12 @@ class OfflineAudioMixer(
         for (track in added) {
             if (cancelled) throw InterruptedException()
             if (track.muted) continue
-            val pcm = decodeSegment(track.path, 0, Long.MAX_VALUE)
+            val pcmRaw = if (track.srcTrimEndMs > 0) {
+                decodeSegment(track.path, track.srcTrimStartMs, track.srcTrimEndMs)
+            } else {
+                decodeSegment(track.path, 0, Long.MAX_VALUE)
+            }
+            val pcm = applySpeed(pcmRaw, track.speed)
             val startFrame = durationMsToFrames(track.startOnTimelineMs)
                 .coerceIn(0, totalFrames)
             val gain = track.volume.coerceIn(0f, 4f)

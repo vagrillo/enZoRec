@@ -100,6 +100,33 @@ fun ClipEditorSheet(vm: EditorViewModel, onDismiss: () -> Unit) {
                 colors = SwitchDefaults.colors(checkedTrackColor = CyanAccent),
             )
         }
+        // Link/unlink audio (port iOS): stacca l'audio del clip come traccia
+        // indipendente (posizionabile/mutabile in Add audio) o lo riattacca.
+        if (clip.hasAudioTrack) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (clip.audioDetached) "Audio scollegato" else "Audio collegato al video",
+                        color = Color.White, fontSize = 15.sp,
+                    )
+                    Text(
+                        if (clip.audioDetached)
+                            "L'audio vive in Add audio come traccia separata"
+                        else
+                            "Disattiva per staccarlo e editarla a parte",
+                        color = TextSecondary, fontSize = 10.sp,
+                    )
+                }
+                Switch(
+                    checked = !clip.audioDetached,
+                    onCheckedChange = { linked ->
+                        if (linked) vm.relinkClipAudioByClip(clip.id)
+                        else vm.unlinkClipAudio(clip.id)
+                    },
+                    colors = SwitchDefaults.colors(checkedTrackColor = ToolTints.audio),
+                )
+            }
+        }
         Spacer(Modifier.height(12.dp))
         Text("Color correction", color = Color.White, fontSize = 16.sp)
         ParamSlider("Esposizione (EV)", clip.exposure, -4f..4f, "%.1f") { vm.updateClip(clip.id, exposure = it) }
@@ -162,11 +189,24 @@ fun AddAudioSheet(vm: EditorViewModel, onDismiss: () -> Unit) {
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(t.name, color = Color.White, fontSize = 12.sp)
+                        Text(
+                            (if (t.linkedClipId != null) "🔗 " else "") + t.name,
+                            color = Color.White, fontSize = 12.sp,
+                        )
                         Text(
                             "a ${t.startOnTimelineMs / 1000}s" +
                                 if (t.muted) " · muto" else "",
                             color = TextSecondary, fontSize = 10.sp,
+                        )
+                    }
+                    if (t.linkedClipId != null) {
+                        Text(
+                            "Ricollega",
+                            color = ToolTints.audio,
+                            fontSize = 11.sp,
+                            modifier = Modifier
+                                .clickable { vm.relinkClipAudioByClip(t.linkedClipId!!) }
+                                .padding(6.dp),
                         )
                     }
                     Text(

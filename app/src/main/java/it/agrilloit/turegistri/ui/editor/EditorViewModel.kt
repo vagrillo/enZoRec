@@ -65,6 +65,8 @@ data class EditClip(
     /** Dissolvenze audio per-clip (ms su inizio/fine clip). */
     val fadeInMs: Long = 0,
     val fadeOutMs: Long = 0,
+    /** Audio staccato dal video (link/unlink stile iOS): vive come traccia separata. */
+    val audioDetached: Boolean = false,
     /** Il clip è un'immagine (foto o freeze frame): durata fissa, niente audio. */
     val isImage: Boolean = false,
     /** Effetti video del catalogo ([VideoEffectCatalog]) applicati in ordine. */
@@ -162,6 +164,11 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
         val startOnTimelineMs: Long,
         val volume: Float = 1f,
         val muted: Boolean = false,
+        /** Audio staccato da un clip (link/unlink iOS): mantiene trim e speed. */
+        val linkedClipId: String? = null,
+        val srcTrimStartMs: Long = 0,
+        val srcTrimEndMs: Long = -1, // -1 = intero file
+        val speed: Float = 1f,
     )
 
     val audioTracks = MutableStateFlow<List<AudioTrackItem>>(emptyList())
@@ -234,6 +241,39 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                 saveEditJson()
             }
         }
+    }
+
+    /** Link/unlink (port iOS): stacca l'audio del clip come traccia indipendente. */
+    fun unlinkClipAudio(clipId: String) {
+        val idx = _clips.value.indexOfFirst { it.id == clipId }
+        val clip = _clips.value.getOrNull(idx) ?: return
+        if (!clip.hasAudioTrack || clip.audioDetached) return
+        audioTracks.value = audioTracks.value + AudioTrackItem(
+            id = UUID.randomUUID().toString(),
+            path = clip.path,
+            name = "Audio da clip ${idx + 1}",
+            startOnTimelineMs = globalStartOf(idx),
+            volume = if (clip.muted) 0f else clip.volume,
+            muted = clip.muted,
+            linkedClipId = clip.id,
+            srcTrimStartMs = clip.trimStartMs,
+            srcTrimEndMs = clip.trimEndMs,
+            speed = clip.speed,
+        )
+        _clips.value = _clips.value.map {
+            if (it.id == clipId) it.copy(audioDetached = true) else it
+        }
+        saveEditJson()
+    }
+
+    /** Ricollega l'audio staccato di un clip (rimuove la traccia e riattacca). */
+    fun relinkClipAudioByClip(clipId: String) {
+        val track = audioTracks.value.firstOrNull { it.linkedClipId == clipId } ?: return
+        audioTracks.value = audioTracks.value.filterNot { it.id == track.id }
+        _clips.value = _clips.value.map {
+            if (it.id == clipId) it.copy(audioDetached = false) else it
+        }
+        saveEditJson()
     }
 
     fun removeAudioTrack(id: String) {
@@ -692,6 +732,10 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                                         startOnTimelineMs = t.optLong("startOnTimelineMs", 0),
                                         volume = t.optDouble("volume", 1.0).toFloat(),
                                         muted = t.optBoolean("muted", false),
+                                        linkedClipId = t.optString("linkedClipId", "").takeIf { it.isNotEmpty() },
+                                        srcTrimStartMs = t.optLong("srcTrimStartMs", 0),
+                                        srcTrimEndMs = t.optLong("srcTrimEndMs", -1),
+                                        speed = t.optDouble("speed", 1.0).toFloat(),
                                     )
                                 )
                             }
@@ -745,6 +789,7 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                                 warmth = o.optDouble("warmth", 0.0).toFloat(),
                                 fadeInMs = o.optLong("fadeInMs", 0),
                                 fadeOutMs = o.optLong("fadeOutMs", 0),
+                                audioDetached = o.optBoolean("audioDetached", false),
                                 effects = runCatching {
                                     val fxArr = o.getJSONArray("effects")
                                     val fxs = ArrayList<VideoEffectCatalog.ClipEffect>()
@@ -910,6 +955,7 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                             .put("fadeInMs", c.fadeInMs)
                             .put("fadeOutMs", c.fadeOutMs)
                             .put("stabLevel", stabilizationLevels.value[c.id] ?: 0)
+                            .put("audioDetached", c.audioDetached)
                     )
                     if (c.effects.isNotEmpty()) {
                         val fxArr = org.json.JSONArray()
@@ -951,6 +997,10 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                             .put("startOnTimelineMs", t.startOnTimelineMs)
                             .put("volume", t.volume.toDouble())
                             .put("muted", t.muted)
+                            .put("linkedClipId", t.linkedClipId ?: "")
+                            .put("srcTrimStartMs", t.srcTrimStartMs)
+                            .put("srcTrimEndMs", t.srcTrimEndMs)
+                            .put("speed", t.speed.toDouble())
                     )
                 }
                 val cbArr = org.json.JSONArray()
@@ -1708,11 +1758,14 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                 volume = if (c.muted) 0f else c.volume * (matchGainFor[c.id] ?: 1f),
                 fadeInMs = maxOf(c.fadeInMs, inTr?.durationMs ?: 0),
                 fadeOutMs = maxOf(c.fadeOutMs, outTr?.durationMs ?: 0),
-                hasAudioTrack = c.hasAudioTrack,
+                hasAudioTrack = c.hasAudioTrack && !c.audioDetached,
             )
         }
         val added = audioTracks.value.map {
-            OfflineAudioMixer.AddedTrack(it.path, it.startOnTimelineMs, it.volume, it.muted)
+            OfflineAudioMixer.AddedTrack(
+                it.path, it.startOnTimelineMs, it.volume, it.muted,
+                it.srcTrimStartMs, it.srcTrimEndMs, it.speed,
+            )
         }
         val processors = mutableListOf<androidx.media3.common.audio.AudioProcessor>()
         if (audioChain.value.any { it.enabled }) processors.add(buildAudioChainProcessor())
