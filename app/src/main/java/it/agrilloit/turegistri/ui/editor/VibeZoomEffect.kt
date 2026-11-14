@@ -5,6 +5,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.MatrixTransformation
 import androidx.media3.effect.RgbMatrix
 import it.agrilloit.turegistri.model.ColorGrade
+import it.agrilloit.turegistri.model.Stabilizer
 
 /**
  * Color grading come `RgbMatrix` media3: utilizzabile sia nell'export
@@ -78,3 +79,56 @@ fun buildClipVideoEffectsForExport(
 
 /** Riferimento unico alla lista Effect per evitare import sparsi. */
 typealias MediaEffect = Effect
+
+/**
+ * Effetto di stabilizzazione (port StabilizationPath iOS): per ogni frame
+ * costruisce la matrice di campionamento inversa della pose stimata,
+ * con crop zoom dai corner. La matrice mappa coordinate output → input.
+ */
+@UnstableApi
+class StabilizeEffect(
+    private val result: Stabilizer.Result,
+    private val clipTrimStartMs: Long,
+    private val clipSpeed: Float,
+    private val clipDurMs: Long,
+) : MatrixTransformation {
+
+    override fun getMatrix(presentationTimeUs: Long): android.graphics.Matrix {
+        val m = android.graphics.Matrix()
+        // tempo sorgente corrispondente a questo frame dell'item
+        val srcMs = clipTrimStartMs + ((presentationTimeUs / 1000) * clipSpeed).toLong()
+        val pose = poseAt(srcMs) ?: return m
+        val zoom = result.cropZoom
+
+        m.postTranslate(-0.5f, -0.5f)
+        m.postScale(1f / zoom, 1f / zoom)
+        m.postScale(1f / pose.scale, 1f / pose.scale)
+        m.postRotate(-Math.toDegrees(pose.angle.toDouble()).toFloat())
+        m.postTranslate(-pose.dx, -pose.dy)
+        m.postTranslate(0.5f, 0.5f)
+        return m
+    }
+
+    private fun poseAt(srcMs: Long): Stabilizer.Pose? {
+        val poses = result.poses
+        if (poses.isEmpty()) return null
+        if (srcMs <= poses.first().tMs) return poses.first()
+        if (srcMs >= poses.last().tMs) return poses.last()
+        var lo = 0
+        var hi = poses.size - 1
+        while (hi - lo > 1) {
+            val mid = (lo + hi) / 2
+            if (poses[mid].tMs <= srcMs) lo = mid else hi = mid
+        }
+        val a = poses[lo]
+        val b = poses[hi]
+        val f = ((srcMs - a.tMs).toFloat() / (b.tMs - a.tMs).coerceAtLeast(1)).coerceIn(0f, 1f)
+        return Stabilizer.Pose(
+            srcMs,
+            a.dx + (b.dx - a.dx) * f,
+            a.dy + (b.dy - a.dy) * f,
+            a.angle + (b.angle - a.angle) * f,
+            a.scale + (b.scale - a.scale) * f,
+        )
+    }
+}

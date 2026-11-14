@@ -827,6 +827,15 @@ class RecordingEngine private constructor(appContext: Context) {
     fun isFrontActive(): Boolean = cameraSetupsInternal.firstOrNull()?.isFront ?: false
 
     /** Torcia LED sulle camere posteriori attive. */
+    /** Effetto live corrente (uniform per lane nel CompositeRenderer). */
+    fun applyLiveEffect(fx: it.agrilloit.turegistri.gl.LiveEffect?) {
+        renderer.setLiveEffect(fx)
+    }
+
+    fun applyPeaking(enabled: Boolean) {
+        renderer.setPeaking(enabled)
+    }
+
     fun setTorch(enabled: Boolean) {
         cameraController?.setTorch(enabled)
     }

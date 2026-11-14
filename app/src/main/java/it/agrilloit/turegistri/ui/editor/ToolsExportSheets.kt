@@ -61,6 +61,16 @@ fun ToolsDrawer(
     nrStrength: Float,
     onNoiseReductionToggle: (Boolean) -> Unit,
     onNoiseReductionStrength: (Float) -> Unit,
+    onOpenVideoEffects: () -> Unit,
+    onOpenLuts: () -> Unit,
+    onOpenTransitions: () -> Unit,
+    onOpenClipEditor: () -> Unit,
+    onOpenTitles: () -> Unit,
+    onOpenAddAudio: () -> Unit,
+    onOpenPauses: () -> Unit,
+    onOpenCensor: () -> Unit,
+    onOpenSubtitles: () -> Unit,
+    onOpenStabilize: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var showEnhanceAudio by remember { mutableStateOf(false) }
@@ -104,15 +114,15 @@ fun ToolsDrawer(
                     Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(SurfaceElevated)
+                        .background(SecondaryAccent)
+                        .clickable {
+                            onDismiss()
+                            onOpenAddAudio()
+                        }
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        "Add audio · in arrivo",
-                        color = TextSecondary.copy(alpha = 0.6f),
-                        fontSize = 13.sp,
-                    )
+                    Text("Add audio / voiceover", color = Color.White, fontSize = 13.sp)
                 }
             }
 
@@ -185,34 +195,141 @@ fun ToolsDrawer(
             }
 
             Spacer(Modifier.height(12.dp))
-            Text("Adjust · in arrivo", color = Color.White, fontSize = 14.sp)
+            Text("Adjust", color = Color.White, fontSize = 14.sp)
             Spacer(Modifier.height(8.dp))
-            val tools = listOf(
-                "Video effects", "Stabilize", "Crop", "Mirror",
-                "Color LUTs", "Speed", "Pauses",
-                "Censor audio", "Subtitles",
-            )
-            tools.chunked(2).forEach { rowTools ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    rowTools.forEach { t ->
-                        Box(
-                            Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(SurfaceElevated)
-                                .padding(vertical = 11.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                "$t · in arrivo",
-                                color = TextSecondary.copy(alpha = 0.65f),
-                                fontSize = 12.sp,
-                            )
-                        }
+            // Effetti video: libreria completa (port iOS VideoEffectCatalog)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(SecondaryAccent.copy(alpha = 0.18f))
+                    .clickable {
+                        onDismiss()
+                        onOpenVideoEffects()
                     }
-                    if (rowTools.size == 1) Spacer(Modifier.weight(1f))
+                    .padding(vertical = 12.dp, horizontal = 12.dp),
+            ) {
+                Text("Video effects · libreria completa", color = Color.White, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(SecondaryAccent.copy(alpha = 0.18f))
+                    .clickable {
+                        onDismiss()
+                        onOpenLuts()
+                    }
+                    .padding(vertical = 12.dp, horizontal = 12.dp),
+            ) {
+                Text("Color LUTs · importa .cube", color = Color.White, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(SecondaryAccent.copy(alpha = 0.18f))
+                    .clickable {
+                        onDismiss()
+                        onOpenTransitions()
+                    }
+                    .padding(vertical = 12.dp, horizontal = 12.dp),
+            ) {
+                Text("Transitions · tra i clip", color = Color.White, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(SecondaryAccent.copy(alpha = 0.18f))
+                    .clickable {
+                        onDismiss()
+                        onOpenClipEditor()
+                    }
+                    .padding(vertical = 12.dp, horizontal = 12.dp),
+            ) {
+                Text("Edit clip · volume, speed, mirror, color", color = Color.White, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(4.dp))
+
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(SecondaryAccent.copy(alpha = 0.18f))
+                    .clickable {
+                        onDismiss()
+                        onOpenTitles()
+                    }
+                    .padding(vertical = 12.dp, horizontal = 12.dp),
+            ) {
+                Text("Titles & overlay · testo/immagine", color = Color.White, fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SecondaryAccent.copy(alpha = 0.18f))
+                        .clickable {
+                            onDismiss()
+                            onOpenPauses()
+                        }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Pauses · tagli reali", color = Color.White, fontSize = 13.sp)
                 }
-                Spacer(Modifier.height(8.dp))
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SecondaryAccent.copy(alpha = 0.18f))
+                        .clickable {
+                            onDismiss()
+                            onOpenCensor()
+                        }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Censor audio · beep", color = Color.White, fontSize = 13.sp)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SecondaryAccent.copy(alpha = 0.18f))
+                        .clickable {
+                            onDismiss()
+                            onOpenSubtitles()
+                        }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Subtitles · ASR", color = Color.White, fontSize = 13.sp)
+                }
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(SecondaryAccent.copy(alpha = 0.18f))
+                        .clickable {
+                            onDismiss()
+                            onOpenStabilize()
+                        }
+                        .padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Stabilize", color = Color.White, fontSize = 13.sp)
+                }
             }
 
             Spacer(Modifier.height(8.dp))
@@ -275,6 +392,10 @@ fun ExportSheet(
         }
     }
 
+    val vmCanvas by vm.exportCanvas.collectAsState()
+    val vmCodec by vm.exportCodec.collectAsState()
+    val vmFps by vm.exportFps.collectAsState()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = SurfaceDark,
@@ -301,11 +422,74 @@ fun ExportSheet(
             ) {
                 Column {
                     Text("Impostazioni export", color = Color.White, fontSize = 13.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Canvas", color = TextSecondary, fontSize = 11.sp)
                     Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("original", "16:9", "9:16", "1:1", "4:5").forEach { c ->
+                            val sel = vmCanvas == c
+                            Box(
+                                Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) SecondaryAccent.copy(alpha = 0.3f) else SurfaceElevated)
+                                    .clickable { vm.exportCanvas.value = c }
+                                    .padding(horizontal = 9.dp, vertical = 6.dp),
+                            ) {
+                                Text(
+                                    if (c == "original") "Orig" else c,
+                                    color = if (sel) Color.White else TextSecondary,
+                                    fontSize = 11.sp,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Codec", color = TextSecondary, fontSize = 11.sp, modifier = Modifier.width(48.dp))
+                        Spacer(Modifier.width(8.dp))
+                        listOf("h264", "h265").forEach { c ->
+                            val sel = vmCodec == c
+                            Box(
+                                Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) SecondaryAccent.copy(alpha = 0.3f) else SurfaceElevated)
+                                    .clickable { vm.exportCodec.value = c }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                            ) {
+                                Text(
+                                    c.uppercase(),
+                                    color = if (sel) Color.White else TextSecondary,
+                                    fontSize = 11.sp,
+                                )
+                            }
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Text("fps", color = TextSecondary, fontSize = 11.sp)
+                        Spacer(Modifier.width(6.dp))
+                        listOf(24, 30, 60).forEach { f ->
+                            val sel = vmFps == f
+                            Box(
+                                Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (sel) SecondaryAccent.copy(alpha = 0.3f) else SurfaceElevated)
+                                    .clickable { vm.exportFps.value = f }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                            ) {
+                                Text(
+                                    "$f",
+                                    color = if (sel) Color.White else TextSecondary,
+                                    fontSize = 11.sp,
+                                )
+                            }
+                            Spacer(Modifier.width(4.dp))
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
                     Text(
-                        "H.264 · AAC · 30 fps · risoluzione sorgente",
+                        "AAC 48 kHz · risoluzione sorgente · Timeline.otio per DaVinci accanto al file",
                         color = TextSecondary,
-                        fontSize = 12.sp,
+                        fontSize = 10.sp,
                     )
                 }
             }

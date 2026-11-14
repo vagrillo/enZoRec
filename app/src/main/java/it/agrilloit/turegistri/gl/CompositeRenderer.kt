@@ -54,12 +54,120 @@ class CompositeRenderer {
             varying vec2 vPos;
             uniform vec3 uCircle;      /* maschera circolare dell'inserto: (cx, cy, r); r<=0 = disattiva */
             uniform samplerExternalOES sTexture;
+            uniform int uFxMode;       /* 0 = nessun effetto live */
+            uniform vec4 uFxParams;    /* (preset, strength, aux1, aux2) */
+            uniform float uFxTime;
+            uniform float uFxAspect;
+            uniform float uPeaking;    /* focus peaking 0/1 */
+            uniform vec2 uTexel;
+            float fLuma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
             void main() {
                 if (uCircle.z > 0.0) {
                     vec2 d = vPos - uCircle.xy;
                     if (dot(d, d) > uCircle.z * uCircle.z) { discard; }
                 }
-                gl_FragColor = texture2D(sTexture, vUV);
+                vec2 uv = vUV;
+                if (uFxMode == 7) {
+                    /* kaleidoscope: piega speculare a settori attorno al centro */
+                    vec2 p = (vPos - vec2(uFxParams.z, uFxParams.w)) * vec2(uFxAspect, 1.0);
+                    float seg = 6.2831853 / max(2.0, uFxParams.x);
+                    float a = mod(atan(p.y, p.x), seg);
+                    a = abs(a - seg * 0.5);
+                    vec2 q = vec2(cos(a), sin(a)) * length(p);
+                    q = q / vec2(uFxAspect, 1.0) + vec2(uFxParams.z, uFxParams.w);
+                    uv = vUV + (q - vPos) * (uUVCrop.zw - uUVCrop.xy);
+                }
+                if (uFxMode == 8) {
+                    /* rgbOffset: separazione dei canali lungo un angolo */
+                    vec2 dir = vec2(cos(uFxParams.z), sin(uFxParams.z)) * uFxParams.x * uTexel * 6.0;
+                    float r = texture2D(sTexture, vUV + dir).r;
+                    float g = texture2D(sTexture, vUV).g;
+                    float b = texture2D(sTexture, vUV - dir).b;
+                    gl_FragColor = vec4(r, g, b, 1.0);
+                } else {
+                    vec4 c = texture2D(sTexture, uv);
+                    float strength = uFxParams.y;
+                    if (uFxMode >= 1 && uFxMode <= 6) {
+                        float l = fLuma(c.rgb);
+                        vec3 col = c.rgb;
+                        if (uFxMode == 1) {
+                            /* silentTint: preset tinta (0 blu notte,1 ambra,2 rosso,3 verde,4 seppia) */
+                            vec3 t = uFxParams.x < 0.5 ? vec3(0.55, 0.68, 1.0) :
+                                     (uFxParams.x < 1.5 ? vec3(1.0, 0.82, 0.55) :
+                                     (uFxParams.x < 2.5 ? vec3(1.0, 0.45, 0.35) :
+                                     (uFxParams.x < 3.5 ? vec3(0.55, 1.0, 0.62) : vec3(0.87, 0.72, 0.53))));
+                            float g2 = clamp((l - 0.5) * 1.1 + 0.5, 0.0, 1.0);
+                            col = mix(vec3(g2), clamp(g2 * t * 1.15, 0.0, 1.0), strength);
+                        } else if (uFxMode == 2) {
+                            /* noir */
+                            l = clamp((l - 0.5) * 1.4 + 0.5, 0.0, 1.0);
+                            col = mix(c.rgb, vec3(l), strength);
+                        } else if (uFxMode == 3) {
+                            /* bleach bypass */
+                            vec3 silver = vec3(l);
+                            vec3 screened = 1.0 - (1.0 - col) * (1.0 - silver);
+                            vec3 bb = mix(col * silver * 1.6, screened, smoothstep(0.35, 0.65, l));
+                            bb = mix(vec3(fLuma(bb)), bb, 0.75);
+                            col = mix(col, bb, strength);
+                        } else if (uFxMode == 4) {
+                            /* day for night */
+                            vec3 dfn = vec3(l) * vec3(0.55, 0.65, 1.0) * 0.8
+                                     + smoothstep(0.62, 1.0, l) * vec3(0.15, 0.18, 0.26);
+                            col = mix(col, dfn, strength);
+                        } else if (uFxMode == 5) {
+                            /* quantization (posterize) */
+                            float n = max(2.0, uFxParams.x);
+                            col = floor(col * (n - 1.0) + 0.5) / (n - 1.0);
+                            col = mix(c.rgb, col, strength);
+                        } else if (uFxMode == 6) {
+                            /* colorIsolation: mantieni la tonalità scelta */
+                            vec3 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0).xyz;
+                            /* usa formule RGB→HSL compatte */
+                            float mn = min(min(col.r, col.g), col.b);
+                            float mx = max(max(col.r, col.g), col.b);
+                            float delta = mx - mn;
+                            float hue = 0.0;
+                            if (delta > 0.0001) {
+                                if (mx == col.r) hue = mod((col.g - col.b) / delta, 6.0);
+                                else if (mx == col.g) hue = (col.b - col.r) / delta + 2.0;
+                                else hue = (col.r - col.g) / delta + 4.0;
+                                hue *= 60.0;
+                            }
+                            float dist = abs(mod(hue - uFxParams.x + 540.0, 360.0) - 180.0);
+                            float keep = 1.0 - smoothstep(uFxParams.z, uFxParams.z + 25.0, dist);
+                            col = mix(vec3(l), col, keep);
+                        }
+                        gl_FragColor = vec4(clamp(col, 0.0, 1.0), c.a);
+                    } else if (uFxMode == 9) {
+                        /* negativeStrobe */
+                        float invert = step(fract(uFxTime * uFxParams.x), 0.5);
+                        gl_FragColor = vec4(mix(c.rgb, 1.0 - c.rgb, invert * strength), c.a);
+                    } else if (uFxMode == 10) {
+                        /* widescreen bars: ratio in uFxParams.x */
+                        float inside = 1.0;
+                        if (uFxAspect < uFxParams.x) {
+                            float bar = (1.0 - uFxAspect / uFxParams.x) * 0.5;
+                            inside = step(bar, vPos.y) * step(vPos.y, 1.0 - bar);
+                        } else {
+                            float bar = (1.0 - uFxParams.x / uFxAspect) * 0.5;
+                            inside = step(bar, vPos.x) * step(vPos.x, 1.0 - bar);
+                        }
+                        gl_FragColor = vec4(c.rgb * inside, c.a);
+                    } else {
+                        gl_FragColor = c;
+                    }
+                }
+                if (uPeaking > 0.5) {
+                    float l0 = fLuma(texture2D(sTexture, vUV).rgb);
+                    float l1 = fLuma(texture2D(sTexture, vUV + vec2(uTexel.x, 0.0)).rgb);
+                    float l2 = fLuma(texture2D(sTexture, vUV - vec2(uTexel.x, 0.0)).rgb);
+                    float l3 = fLuma(texture2D(sTexture, vUV + vec2(0.0, uTexel.y)).rgb);
+                    float l4 = fLuma(texture2D(sTexture, vUV - vec2(0.0, uTexel.y)).rgb);
+                    float edge = abs(l1 - l0) + abs(l2 - l0) + abs(l3 - l0) + abs(l4 - l0);
+                    if (edge > 0.22) {
+                        gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(1.0, 0.18, 0.08), 0.85);
+                    }
+                }
             }
         """
 
@@ -158,6 +266,21 @@ class CompositeRenderer {
     /** Clear bianco per la modalità flash estremo (solo pass di anteprima). */
     @Volatile
     private var flashWhite = false
+
+    /** Effetto live corrente (applicato a tutte le lane in preview e registrazione). */
+    @Volatile
+    private var liveEffect: it.agrilloit.turegistri.gl.LiveEffect? = null
+
+    @Volatile
+    private var peakingEnabled = false
+
+    fun setLiveEffect(fx: it.agrilloit.turegistri.gl.LiveEffect?) {
+        liveEffect = fx
+    }
+
+    fun setPeaking(enabled: Boolean) {
+        peakingEnabled = enabled
+    }
 
     /** Imposta il rettangolo (px) in cui disegnare l'anteprima (flash estremo). */
     fun setPreviewWindow(x: Int, yTop: Int, w: Int, h: Int) {
@@ -556,6 +679,33 @@ class CompositeRenderer {
             GLES20.glUniform3f(uCircleHandle, mask.cx, mask.cy, mask.radius)
             val mat = if (index < stMatrix.size) stMatrix[index] else IDENTITY_MATRIX
             GLES20.glUniformMatrix4fv(uSTMatrixHandle, 1, false, mat, 0)
+            // Effetto live + focus peaking (parametri per lane).
+            val fx = liveEffect
+            if (uFxModeHandle >= 0) {
+                if (fx != null && fx.mode != 0) {
+                    GLES20.glUniform1i(uFxModeHandle, fx.mode)
+                    GLES20.glUniform4f(
+                        uFxParamsHandle, fx.p1, fx.p2, fx.p3, fx.p4
+                    )
+                    GLES20.glUniform1f(
+                        uFxTimeHandle,
+                        (System.nanoTime() / 1_000_000_000.0).toFloat()
+                    )
+                    GLES20.glUniform1f(uFxAspectHandle, viewportAspect)
+                } else {
+                    GLES20.glUniform1i(uFxModeHandle, 0)
+                }
+            }
+            if (uPeakingHandle >= 0) {
+                GLES20.glUniform1f(uPeakingHandle, if (peakingEnabled) 1f else 0f)
+                if (uTexelHandle >= 0) {
+                    GLES20.glUniform2f(
+                        uTexelHandle,
+                        1f / info.bufferWidth.coerceAtLeast(1),
+                        1f / info.bufferHeight.coerceAtLeast(1),
+                    )
+                }
+            }
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
             placementIndex++
         }
@@ -665,6 +815,12 @@ class CompositeRenderer {
     private var uUVCropHandle = 0
     private var uXformHandle = 0
     private var uCircleHandle = 0
+    private var uFxModeHandle = 0
+    private var uFxParamsHandle = 0
+    private var uFxTimeHandle = 0
+    private var uFxAspectHandle = 0
+    private var uPeakingHandle = 0
+    private var uTexelHandle = 0
     private var texIds: IntArray = IntArray(0)
 
     private val quadBuffer = directFloatBuffer(
@@ -693,6 +849,12 @@ class CompositeRenderer {
         uUVCropHandle = GLES20.glGetUniformLocation(program, "uUVCrop")
         uXformHandle = GLES20.glGetUniformLocation(program, "uXform")
         uCircleHandle = GLES20.glGetUniformLocation(program, "uCircle")
+        uFxModeHandle = GLES20.glGetUniformLocation(program, "uFxMode")
+        uFxParamsHandle = GLES20.glGetUniformLocation(program, "uFxParams")
+        uFxTimeHandle = GLES20.glGetUniformLocation(program, "uFxTime")
+        uFxAspectHandle = GLES20.glGetUniformLocation(program, "uFxAspect")
+        uPeakingHandle = GLES20.glGetUniformLocation(program, "uPeaking")
+        uTexelHandle = GLES20.glGetUniformLocation(program, "uTexel")
     }
 
     private fun compileShader(type: Int, source: String): Int {

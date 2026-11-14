@@ -138,6 +138,7 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
     val clips by vm.clips.collectAsState()
     val selection by vm.selection.collectAsState()
     val playhead by vm.playheadMs.collectAsState()
+    val bookmarks by vm.bookmarks.collectAsState()
     val playing by vm.playing.collectAsState()
     val thumbnails by vm.thumbnails.collectAsState()
     val waveforms by vm.waveforms.collectAsState()
@@ -404,7 +405,9 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             ActionIcon(Icons.Filled.IosShare, "Export", GreenBadge) { showExport = true }
-            ActionIcon(Icons.Filled.Flag, "Mark", Color.White) { seekTo(vm.playheadMs.value) }
+            ActionIcon(Icons.Filled.Flag, "Mark", if (bookmarksNear(playhead, bookmarks)) GreenBadge else Color.White) {
+                vm.addBookmark()
+            }
             ActionIcon(Icons.Filled.ContentCut, "Split", Color.White) { vm.splitAt(playhead) }
             ActionIcon(Icons.Filled.Delete, "Del", Color.White) {
                 selection?.let { vm.delete(it) }
@@ -421,6 +424,20 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
                 selection?.let { vm.move(it, +1) }
             }
             ActionIcon(Icons.Filled.Tune, "Tools", Color.White) { showTools = true }
+        }
+
+        // Trasporto: bookmark prev/next + frame step (±1 frame a 30fps)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(SurfaceDark)
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            ActionIcon(Icons.Filled.SkipPrevious, "Bookmark −", Color.White) { vm.seekBookmark(-1) }
+            ActionIcon(Icons.Filled.KeyboardArrowLeft, "−1 frame", TextSecondary) { vm.stepPlayhead(-33) }
+            ActionIcon(Icons.Filled.KeyboardArrowRight, "+1 frame", TextSecondary) { vm.stepPlayhead(33) }
+            ActionIcon(Icons.Filled.SkipNext, "Bookmark +", Color.White) { vm.seekBookmark(1) }
         }
 
         // Trim del clip selezionato (maniglie in/out)
@@ -464,6 +481,46 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
     if (showVibe) {
         VibeDirectorSheet(vm = vm, onDismiss = { showVibe = false })
     }
+    var showVideoEffects by remember { mutableStateOf(false) }
+    if (showVideoEffects) {
+        VideoEffectsSheet(vm = vm, onDismiss = { showVideoEffects = false })
+    }
+    var showLuts by remember { mutableStateOf(false) }
+    if (showLuts) {
+        LutSheet(vm = vm, onDismiss = { showLuts = false })
+    }
+    var showTransitions by remember { mutableStateOf(false) }
+    if (showTransitions) {
+        TransitionSheet(vm = vm, onDismiss = { showTransitions = false })
+    }
+    var showClipEditor by remember { mutableStateOf(false) }
+    if (showClipEditor) {
+        ClipEditorSheet(vm = vm, onDismiss = { showClipEditor = false })
+    }
+    var showAddAudio by remember { mutableStateOf(false) }
+    if (showAddAudio) {
+        AddAudioSheet(vm = vm, onDismiss = { showAddAudio = false })
+    }
+    var showPauses by remember { mutableStateOf(false) }
+    if (showPauses) {
+        PausesSheet(vm = vm, onDismiss = { showPauses = false })
+    }
+    var showCensor by remember { mutableStateOf(false) }
+    if (showCensor) {
+        CensorSheet(vm = vm, onDismiss = { showCensor = false })
+    }
+    var showTitles by remember { mutableStateOf(false) }
+    if (showTitles) {
+        TitleSheet(vm = vm, playheadMs = playhead, onDismiss = { showTitles = false })
+    }
+    var showSubtitles by remember { mutableStateOf(false) }
+    if (showSubtitles) {
+        SubtitleSheet(vm = vm, onDismiss = { showSubtitles = false })
+    }
+    var showStabilize by remember { mutableStateOf(false) }
+    if (showStabilize) {
+        StabilizeSheet(vm = vm, onDismiss = { showStabilize = false })
+    }
     if (showTools) {
         ToolsDrawer(
             onAddVideo = { uri -> vm.addVideoClip(uri) },
@@ -473,6 +530,16 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
             nrStrength = nrStrength,
             onNoiseReductionToggle = { vm.noiseReductionEnabled.value = it },
             onNoiseReductionStrength = { vm.noiseReductionStrength.value = it },
+            onOpenVideoEffects = { showVideoEffects = true },
+            onOpenLuts = { showLuts = true },
+            onOpenTransitions = { showTransitions = true },
+            onOpenClipEditor = { showClipEditor = true },
+            onOpenTitles = { showTitles = true },
+            onOpenAddAudio = { showAddAudio = true },
+            onOpenPauses = { showPauses = true },
+            onOpenCensor = { showCensor = true },
+            onOpenSubtitles = { showSubtitles = true },
+            onOpenStabilize = { showStabilize = true },
             onDismiss = { showTools = false },
         )
     }
@@ -487,6 +554,9 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
         )
     }
 }
+
+private fun bookmarksNear(playheadMs: Long, bookmarks: List<Long>): Boolean =
+    bookmarks.any { abs(it - playheadMs) < 100 }
 
 internal fun formatTimecode(ms: Long): String {
     val m = ms / 60000

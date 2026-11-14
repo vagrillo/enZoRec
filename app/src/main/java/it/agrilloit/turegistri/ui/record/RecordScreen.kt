@@ -86,6 +86,7 @@ import it.agrilloit.turegistri.ui.theme.SecondaryAccent
 import it.agrilloit.turegistri.ui.theme.SurfaceDark
 import it.agrilloit.turegistri.ui.theme.TimecodeRed
 import it.agrilloit.turegistri.ui.theme.SurfaceElevated
+import it.agrilloit.turegistri.gl.LiveEffectCatalog
 import it.agrilloit.turegistri.ui.theme.TextSecondary
 import java.util.Locale
 import kotlin.math.abs
@@ -123,6 +124,10 @@ fun RecordScreen(
     var showSettings by remember { mutableStateOf(false) }
     var showLayoutPicker by remember { mutableStateOf(false) }
     var showMicPicker by remember { mutableStateOf(false) }
+    var showLiveEffects by remember { mutableStateOf(false) }
+    var liveEffectId by remember { mutableStateOf("none") }
+    var liveStrength by remember { mutableStateOf(1f) }
+    var livePeaking by remember { mutableStateOf(false) }
     var pickerLane by remember { mutableStateOf<Int?>(null) }
     var showGallery by remember { mutableStateOf(false) }
     var showTeleprompter by remember { mutableStateOf(false) }
@@ -485,11 +490,11 @@ fun RecordScreen(
             Icon(
                 Icons.Filled.AutoFixHigh,
                 contentDescription = "Effetti live",
-                tint = TextSecondary,
+                tint = if (liveEffectId != "none") Color.White else TextSecondary,
                 modifier = Modifier
                     .size(26.dp)
-                    .alpha(0.45f)
-                    .clickable { message = "Effetti live: in arrivo in una prossima versione" },
+                    .alpha(if (liveEffectId != "none") 1f else 0.45f)
+                    .clickable { showLiveEffects = true },
             )
             Spacer(Modifier.width(14.dp))
             FlashButton(flashOn) { vm.cycleFlash() }
@@ -759,6 +764,26 @@ fun RecordScreen(
                 containerColor = SurfaceDark,
             )
         }
+    if (showLiveEffects) {
+        LiveEffectsSheet(
+            activeId = liveEffectId,
+            strength = liveStrength,
+            peaking = livePeaking,
+            onPick = { id, strength ->
+                liveEffectId = id
+                liveStrength = strength
+                val entry = LiveEffectCatalog.byId(id)
+                vm.engine.applyLiveEffect(
+                    if (entry == null || entry.mode == 0) null else LiveEffectCatalog.build(entry, strength)
+                )
+            },
+            onPeaking = { enabled ->
+                livePeaking = enabled
+                vm.engine.applyPeaking(enabled)
+            },
+            onDismiss = { showLiveEffects = false },
+        )
+    }
         if (showMicPicker) {
             MicPickerDialog(
                 vm = vm,

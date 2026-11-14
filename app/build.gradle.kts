@@ -13,8 +13,8 @@ android {
         applicationId = "it.agrilloit.yourec"
         minSdk = 30
         targetSdk = 35
-        versionCode = 42
-        versionName = "3.3.0"
+        versionCode = 43
+        versionName = "3.4.0"
     }
 
     buildTypes {
@@ -34,8 +34,11 @@ android {
 }
 
 dependencies {
+    testImplementation("org.json:json:20231013")
     // UI classica del motore (service/notifiche)
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("net.java.dev.jna:jna:5.13.0@aar")
+    implementation("com.alphacephei:vosk-android:0.3.75")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")

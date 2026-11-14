@@ -99,6 +99,22 @@ class ProjectsRepository(private val context: Context) {
         db.projectDao().delete(projectId)
     }
 
+    /** Duplica un progetto: nuova entità con stesso montaggio/take (media condivisi). */
+    suspend fun duplicate(projectId: String): String? = withContext(Dispatchers.IO) {
+        val orig = get(projectId) ?: return@withContext null
+        val copy = createProject("${orig.name} (copia)")
+        db.withTransaction {
+            db.projectDao().update(copy.copy(editJson = orig.editJson))
+            val origTakes = takes(projectId)
+            for (t in origTakes) {
+                db.takeDao().insert(
+                    t.copy(id = java.util.UUID.randomUUID().toString(), projectId = copy.id)
+                )
+            }
+        }
+        copy.id
+    }
+
     suspend fun rename(projectId: String, name: String) {
         db.projectDao().get(projectId)?.let { update(it.copy(name = name)) }
     }

@@ -312,13 +312,56 @@ elevated controls `#22252D`, primary red `#FF3B30`, timecode pill
 - Don't force-stop the app during tests unless necessary: it kills the
   accessibility binding until rebind.
 
+### 3.11 Media3 effects (v3.4.0 recipes)
+- Custom fragment shader: subclass `BaseGlShaderProgram(false, 1)`, override
+  `configure`→`Size(w,h)` and `drawFrame` (use + setSamplerTexIdUniform +
+  bindAttributesAndUniforms + glDrawArrays TRIANGLE_STRIP 0,4). Vertex shader:
+  attribute `aFramePosition`, uniforms `uTransformationMatrix`/`uTexTransformationMatrix`,
+  varying `vTexSamplingCoord`. `GlProgram(String, String)` takes RAW shader strings.
+- **Kotlin 2.0.20 (K2) BUG su questa toolchain: `data class` dentro una
+  `sealed class` genera "Argument type mismatch: actual X.A, expected X" anche
+  se il codice è corretto. Usare `abstract class` (o class normali) — verificato
+  con un caso minimo.**
+- LUT 3D native: `SingleColorLut.createFromCube(int[N][N][N])` — cubo indicizzato
+  `[red][green][blue]` con colore packed; il `.cube` Adobe ha ROSSO che varia più
+  velocemente (linea i → r=i%N, g=(i/N)%N, b=i/N²).
+- Overlay dinamici (sottotitoli/titoli): `TextureOverlay` custom — override
+  `getTextureId(t)`/`getTextureSize(t)`/`getOverlaySettings(t)`, texture creata
+  con `GlUtil.createTexture(bitmap)` (GL thread), cache per step 33 ms, texture
+  1×1 trasparente quando fuori finestra. `OverlayEffect(ImmutableList.of(...))`
+  per item; il presentationTime è RELATIVO all'item → passare l'offset globale.
+- `EditedMediaItem.Builder.setFrameRate(int)` esiste; `TransformationRequest.setResolution`
+  è package-private (niente downscale pubblico in 1.4.1).
+- **Unit test e org.json**: android.jar nei test JVM è stub (put/toString(2)
+  ritornano null) → `testImplementation("org.json:json:20231013")`; NON concatenare
+  `.put().put()` (semantica Map.put su JVM), evitare `toString(2)`.
+
+### 3.12 Sottotitoli ASR (vosk)
+- `com.alphacephei:vosk-android` su Maven Central solo fino a 0.3.75 (le 0.5.x
+  non sono su alcun repo pubblico; alphacephei.com/maven è morto — 404).
+  Serve anche `net.java.dev.jna:jna:5.13.0@aar`. Modelli runtime da
+  alphacephei.com/vosk/models (small-it ~41MB, small-en-us ~40MB), unzip in
+  filesDir/vosk/<dir>. PCM 16 kHz mono.
+
+### 3.13 Audio export (v3.4.0)
+- Export = Transformer video-only (`setRemoveAudio(true)`) + `OfflineAudioMixer`
+  (decode MediaExtractor/MediaCodec → speed via Sonic standalone → volume/fade →
+  timeline → beep censor → tracce aggiunte → catena AudioProcessor offline →
+  WAV 48k stereo) + `AudioMuxer` (PCM→AAC su m4a temporaneo, poi copia video
+  samples + audio nel MediaMuxer finale). Il video non viene ricodificato.
+
 ## 4. Where things live
 
 ```
 app/src/main/java/it/agrilloit/turegistri/
   camera/    ConcurrentCameraDetector, CameraCatalog (zoom labels),
              CameraController (open/retry/zoom/focus/torch/photo/still)
-  gl/        CompositeRenderer (EGL + 2 external textures + ST-matrix math)
+  gl/        CompositeRenderer (EGL + 2 external textures + ST-matrix math),
+             VideoEffectShaderProgram (motore shader effetti), LiveEffects
+  subtitles/ SubtitlesEngine (vosk ASR, grouping, SRT)
+  vibe/      VibeDirector (euristico) + VibeTools (registro tool)
+  model/     LayoutEngine, ColorGrade, VideoEffectCatalog (21 effetti + GLSL),
+             CubeLut, OtioExport, Stabilizer, TitleDesign
   audio/     MicEnumerator, MicRecorder, WavWriter, NoiseReducer
   record/    RecordingEngine (orchestrator/singleton), VideoRecorder,
              ScreenStreams (MediaProjection)
@@ -347,8 +390,9 @@ bisogno di un provider esterno (es. LLM director via OpenRouter):
 
 ## 5. Definition of done (per change)
 
-- `gradle assembleDebug testDebugUnitTest` green (20 tests: WAV header, layout
-  geometry incl. fit-mode, manifest JSON, noise reducer).
+- `gradle assembleDebug testDebugUnitTest` green (28 tests: WAV header, layout
+  geometry incl. fit-mode, manifest JSON, noise reducer, LUT .cube 1D/3D,
+  pause detector, subtitles grouping/SRT, OTIO export).
 - No `FATAL EXCEPTION` in logcat after: launch → REC → background → reopen →
   stop (run this cycle after touching camera/GL/engine).
 - Verify on device over `adb connect <ip>:5555` (fixed port, set once with

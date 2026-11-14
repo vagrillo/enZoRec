@@ -163,7 +163,7 @@ fun CameraSettingsSheet(
                     }
                 }
                 Text(
-                    "HDR/Log: in arrivo",
+                    "HDR/Log: non disponibile con Camera2+MediaRecorder (SDK 35) — previsto con migrazione CameraX/10-bit",
                     color = TextSecondary.copy(alpha = 0.6f),
                     fontSize = 11.sp,
                     modifier = Modifier.align(Alignment.CenterVertically),

@@ -97,6 +97,8 @@ class ProjectsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun delete(id: String) = viewModelScope.launch { repository.delete(id) }
 
+    fun duplicate(id: String) = viewModelScope.launch { repository.duplicate(id) }
+
     fun importVideo(uri: Uri, onDone: (String) -> Unit) = viewModelScope.launch {
         val context = getApplication<Application>()
         val imported = withContext(Dispatchers.IO) {
@@ -226,6 +228,7 @@ fun ProjectsScreen(
                     onEdit = { onOpenEditor(project.id) },
                     onRename = { renameFor = project },
                     onDelete = { deleteFor = project },
+                    onDuplicate = { vm.duplicate(project.id) },
                     menuOpen = menuFor == project.id,
                     onMenuToggle = { menuFor = if (menuFor == project.id) null else project.id },
                 )
@@ -290,6 +293,7 @@ private fun ProjectCard(
     onEdit: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
+    onDuplicate: () -> Unit,
     menuOpen: Boolean,
     onMenuToggle: () -> Unit,
 ) {
@@ -372,6 +376,13 @@ private fun ProjectCard(
                         onClick = {
                             onMenuToggle()
                             onRename()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Duplica", color = Color.White) },
+                        onClick = {
+                            onMenuToggle()
+                            onDuplicate()
                         },
                     )
                     DropdownMenuItem(
