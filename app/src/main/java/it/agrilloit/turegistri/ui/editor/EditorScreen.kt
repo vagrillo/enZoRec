@@ -159,10 +159,21 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
     val nrStrength by vm.noiseReductionStrength.collectAsState()
     val snap by vm.snapToCuts.collectAsState()
 
-    var showTools by remember { mutableStateOf(false) }
-    var showExport by remember { mutableStateOf(false) }
-    var showVibe by remember { mutableStateOf(false) }
     var fullscreenPreview by remember { mutableStateOf(false) }
+
+    var showTools by remember { mutableStateOf(false) }
+    var showVideoEffects by remember { mutableStateOf(false) }
+    var showClipEditor by remember { mutableStateOf(false) }
+    var showVibe by remember { mutableStateOf(false) }
+    var showExport by remember { mutableStateOf(false) }
+    var showAddAudio by remember { mutableStateOf(false) }
+    var showTitles by remember { mutableStateOf(false) }
+    var showCensor by remember { mutableStateOf(false) }
+    var showStabilize by remember { mutableStateOf(false) }
+    var showLuts by remember { mutableStateOf(false) }
+    var showTransitions by remember { mutableStateOf(false) }
+    var showSubtitles by remember { mutableStateOf(false) }
+    var showPauses by remember { mutableStateOf(false) }
 
     // ------------------------------------------------------------ player
     val player = remember {
@@ -276,6 +287,7 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
             )
         }
 
+
         // Preview (con overlay anteprima live: titolo/immagine/sottotitoli)
         Box(
             Modifier
@@ -365,6 +377,57 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
             val target = (anchorSec * newPx - centroidX).toInt().coerceIn(0, maxScroll)
             scope2.launch { scroll.scrollTo(target) }
         }
+        // Tool applicati (port iOS): chip toccabili per riaprire ogni tool
+        val appliedTools = vm.appliedTools()
+        if (appliedTools.isNotEmpty()) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(SurfaceDark)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 10.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                appliedTools.forEach { at ->
+                    val tint = when (at.tool) {
+                        "luts", "videoEffects" -> ToolTints.videoEffects
+                        "transition" -> ToolTints.transition
+                        "stabilize" -> ToolTints.stabilize
+                        "clipAudio", "audioTrack" -> ToolTints.audio
+                        "subtitles" -> ToolTints.subtitles
+                        "title" -> ToolTints.text
+                        "imageOverlay" -> ToolTints.image
+                        "censor" -> ToolTints.audio
+                        else -> Color.White
+                    }
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(tint.copy(alpha = 0.16f))
+                            .border(1.dp, tint.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
+                            .clickable {
+                                at.clipId?.let { vm.select(it) }
+                                when (at.tool) {
+                                    "videoEffects" -> showVideoEffects = true
+                                    "luts" -> showLuts = true
+                                    "transition" -> showTransitions = true
+                                    "stabilize" -> showStabilize = true
+                                    "clipAudio" -> showClipEditor = true
+                                    "audioTrack" -> showAddAudio = true
+                                    "subtitles" -> showSubtitles = true
+                                    "title", "imageOverlay" -> showTitles = true
+                                    "censor" -> showCensor = true
+                                }
+                            }
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                    ) {
+                        Text(at.label, color = tint, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+
         // Zoom timeline: pulsanti espliciti (il pinch resta attivo sul canvas)
         Row(
             Modifier
@@ -393,6 +456,23 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
                 color = TextSecondary,
                 fontSize = 10.sp,
             )
+        }
+        // Barre colorate dei tool applicati sulla timeline (per clip)
+        val timelineSpans = buildList {
+            val slotCounter = HashMap<String, Int>()
+            appliedTools.forEach { at ->
+                val cid = at.clipId ?: return@forEach
+                val slot = slotCounter.getOrDefault(cid, 0)
+                slotCounter[cid] = slot + 1
+                val color = when (at.tool) {
+                    "luts", "videoEffects" -> ToolTints.videoEffects
+                    "transition" -> ToolTints.transition
+                    "stabilize" -> ToolTints.stabilize
+                    "clipAudio" -> ToolTints.audio
+                    else -> return@forEach
+                }
+                add(TimelineSpan(cid, color, slot))
+            }
         }
         Box(
             Modifier
@@ -434,6 +514,7 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
                     val clip = clips.firstOrNull { it.id == clipId } ?: return@TimelineCanvas
                     vm.trim(clipId, clip.trimStartMs, newEndMs)
                 },
+                spans = timelineSpans,
             )
         }
 
@@ -525,43 +606,33 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
     if (showVibe) {
         VibeDirectorSheet(vm = vm, onDismiss = { showVibe = false })
     }
-    var showVideoEffects by remember { mutableStateOf(false) }
     if (showVideoEffects) {
         VideoEffectsSheet(vm = vm, onDismiss = { showVideoEffects = false })
     }
-    var showLuts by remember { mutableStateOf(false) }
     if (showLuts) {
         LutSheet(vm = vm, onDismiss = { showLuts = false })
     }
-    var showTransitions by remember { mutableStateOf(false) }
     if (showTransitions) {
         TransitionSheet(vm = vm, onDismiss = { showTransitions = false })
     }
-    var showClipEditor by remember { mutableStateOf(false) }
     if (showClipEditor) {
         ClipEditorSheet(vm = vm, onDismiss = { showClipEditor = false })
     }
-    var showAddAudio by remember { mutableStateOf(false) }
     if (showAddAudio) {
         AddAudioSheet(vm = vm, onDismiss = { showAddAudio = false })
     }
-    var showPauses by remember { mutableStateOf(false) }
     if (showPauses) {
         PausesSheet(vm = vm, onDismiss = { showPauses = false })
     }
-    var showCensor by remember { mutableStateOf(false) }
     if (showCensor) {
         CensorSheet(vm = vm, onDismiss = { showCensor = false })
     }
-    var showTitles by remember { mutableStateOf(false) }
     if (showTitles) {
         TitleSheet(vm = vm, playheadMs = playhead, onDismiss = { showTitles = false })
     }
-    var showSubtitles by remember { mutableStateOf(false) }
     if (showSubtitles) {
         SubtitleSheet(vm = vm, onDismiss = { showSubtitles = false })
     }
-    var showStabilize by remember { mutableStateOf(false) }
     if (showStabilize) {
         StabilizeSheet(vm = vm, onDismiss = { showStabilize = false })
     }
@@ -684,6 +755,9 @@ private fun OverlayPreviewLayer(vm: EditorViewModel, playhead: Long) {
 private fun bookmarksNear(playheadMs: Long, bookmarks: List<Long>): Boolean =
     bookmarks.any { abs(it - playheadMs) < 100 }
 
+/** Barra colorata di un tool applicato su una clip (timeline). */
+data class TimelineSpan(val clipId: String, val color: Color, val slot: Int)
+
 internal fun formatTimecode(ms: Long): String {
     val m = ms / 60000
     val s = (ms % 60000) / 1000
@@ -707,6 +781,7 @@ private fun TimelineCanvas(
     onTap: (Float, Float) -> Unit,
     onTrimStart: (String, Long) -> Unit,
     onTrimEnd: (String, Long) -> Unit,
+    spans: List<TimelineSpan> = emptyList(),
 ) {
     // Altezza timeline: ruler 40 + video 120 + audio 80 + margini
     val videoTop = 60f
@@ -906,6 +981,22 @@ private fun TimelineCanvas(
                 )
             }
             acc += w
+        }
+
+        // Barre colorate dei tool per clip (slot impilati sopra il video track)
+        var spanAcc = 0f
+        clips.forEach { clip ->
+            val w = clip.effectiveMs() / 1000f * pxPerSec
+            spans.filter { it.clipId == clip.id }.forEach { sp ->
+                val y = videoTop - 8f + sp.slot * 5f
+                drawRoundRect(
+                    sp.color,
+                    Offset(spanAcc, y),
+                    Size(w, 4f),
+                    CornerRadius(2f, 2f),
+                )
+            }
+            spanAcc += w
         }
 
         // Playhead

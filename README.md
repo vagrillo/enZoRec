@@ -1,6 +1,6 @@
-# YouRec
+# enZoRec
 
-**YouRec** is an Android app for **simultaneous multi-camera video recording** with separated audio tracks, live dual-camera layouts, a built-in **non-linear timeline editor**, ML-style audio noise reduction, a teleprompter, and MP4 export — all in one app. The project starts from an idea by **Salvatore Sanfilippo (Antirez)** and his **YouRec for iOS** (ref.: [https://github.com/antirez/YouRecApp](https://github.com/antirez/YouRecApp)), reimagined for Android.
+**enZoRec** (formerly YouRecPlay) is an Android app for **simultaneous multi-camera video recording** with separated audio tracks, live dual-camera layouts, a built-in **non-linear timeline editor**, ML-style audio noise reduction, a teleprompter, and MP4 export — all in one app. The project starts from an idea by **Salvatore Sanfilippo (Antirez)** and his **YouRec for iOS** (ref.: [https://github.com/antirez/YouRecApp](https://github.com/antirez/YouRecApp)), reimagined for Android. Licensed under the **MIT License** — the same license used by the original iOS project (see [LICENSE](LICENSE)).
 
 Designed for mobile journalism, vlogging and live event coverage: record with the front and rear cameras at the same time (BeReal-style split screen, picture-in-picture), keep every audio source on its own track for post-production, then edit and export without ever leaving the app.
 

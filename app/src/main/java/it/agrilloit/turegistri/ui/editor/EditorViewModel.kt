@@ -1114,6 +1114,58 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
         selection.value = null
     }
 
+    /** Un tool applicato al progetto (chip toccabile, port del tools-scope iOS). */
+    data class AppliedTool(
+        val key: String,
+        val tool: String, // videoEffects|luts|transition|stabilize|clipAudio|audioTrack|subtitles|title|imageOverlay|censor
+        val label: String,
+        val clipId: String? = null,
+    )
+
+    /** Elenco di TUTTI i tool applicati, per la riga di chip sopra la timeline. */
+    fun appliedTools(): List<AppliedTool> {
+        val out = mutableListOf<AppliedTool>()
+        _clips.value.forEachIndexed { i, c ->
+            val base = "clip ${i + 1}"
+            for (fx in c.effects) {
+                if (fx.defId == "lut3d") {
+                    out.add(AppliedTool("lut_${fx.uid}", "luts", "LUT · $base", c.id))
+                } else {
+                    VideoEffectCatalog.byId(fx.defId)?.let {
+                        out.add(AppliedTool("fx_${fx.uid}", "videoEffects", "${it.label} · $base", c.id))
+                    }
+                }
+            }
+            if ((stabilizationLevels.value[c.id] ?: 0) > 0) {
+                out.add(AppliedTool("stab_${c.id}", "stabilize", "Stabilize · $base", c.id))
+            }
+            if (c.audioDetached) {
+                out.add(AppliedTool("unl_${c.id}", "clipAudio", "Audio scollegato · $base", c.id))
+            }
+        }
+        transitions.value.forEach { t ->
+            out.add(AppliedTool("tr_${t.key}", "transition", "Transizione ${t.style.label}", t.leftId))
+        }
+        if (censorBeeps.value.isNotEmpty()) {
+            out.add(AppliedTool("censor", "censor", "Censor · ${censorBeeps.value.size} beep", null))
+        }
+        if (subtitleCues.value.isNotEmpty()) {
+            out.add(AppliedTool("subs", "subtitles", "Sottotitoli · ${subtitleCues.value.size}", null))
+        }
+        titleDesign.value?.let {
+            if (it.text.isNotBlank()) {
+                out.add(AppliedTool("title", "title", "Titolo: ${it.text.take(14)}", null))
+            }
+        }
+        imageOverlay.value?.let {
+            out.add(AppliedTool("imgov", "imageOverlay", "Overlay immagine", null))
+        }
+        audioTracks.value.filter { it.linkedClipId == null }.forEach { t ->
+            out.add(AppliedTool("at_${t.id}", "audioTrack", t.name, null))
+        }
+        return out
+    }
+
     fun select(clipId: String?) {
         selection.value = if (selection.value == clipId) null else clipId
     }

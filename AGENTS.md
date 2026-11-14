@@ -1,4 +1,7 @@
-# AGENTS.md — Guide for coding agents working on YouRec
+# AGENTS.md — Guide for coding agents working on enZoRec
+
+> Project renamed from YouRecPlay (app identity `it.agrilloit.yourec` kept for
+> compatibility with installed devices). Licensed MIT — see LICENSE.
 
 This file condenses **what YouRec is, how it must look/behave, and every
 non-obvious finding** discovered while building it. Read it before changing
