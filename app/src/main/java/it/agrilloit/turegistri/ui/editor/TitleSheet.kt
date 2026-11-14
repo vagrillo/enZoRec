@@ -106,20 +106,11 @@ fun TitleSheet(
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = SurfaceDark, tonalElevation = 0.dp) {
-        Column(
-            Modifier
-                .padding(horizontal = 18.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Titles & overlay", color = Color.White, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Done", color = PrimaryAccent, fontSize = 15.sp,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(6.dp),
-                )
-            }
+    SheetScaffold(
+        title = "Titles & overlay",
+        onDismiss = onDismiss,
+        doneColor = ToolTints.text,
+    ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Titolo", "Immagine").forEachIndexed { i, label ->
                     val sel = tab == i
@@ -358,6 +349,5 @@ fun TitleSheet(
             Spacer(Modifier.height(24.dp))
         }
     }
-}
 
 private fun abs(f: Float): Float = kotlin.math.abs(f)

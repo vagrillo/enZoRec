@@ -52,26 +52,11 @@ fun TransitionSheet(
     val clips by vm.clips.collectAsState()
     val transitions by vm.transitions.collectAsState()
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        tonalElevation = 0.dp,
+    SheetScaffold(
+        title = "Transitions",
+        onDismiss = onDismiss,
+        doneColor = ToolTints.transition,
     ) {
-        Column(
-            Modifier
-                .padding(horizontal = 18.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Transitions", color = Color.White, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Done",
-                    color = PrimaryAccent,
-                    fontSize = 15.sp,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(6.dp),
-                )
-            }
             Text(
                 "Stile sul confine tra clip; audio in dissolvenza automatica. " +
                     "Tocca di nuovo lo stile attivo per rimuovere la transizione.",
@@ -161,7 +146,5 @@ fun TransitionSheet(
                 }
                 Spacer(Modifier.height(8.dp))
             }
-            Spacer(Modifier.height(24.dp))
         }
     }
-}

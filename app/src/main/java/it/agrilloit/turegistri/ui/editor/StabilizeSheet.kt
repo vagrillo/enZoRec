@@ -49,20 +49,11 @@ fun StabilizeSheet(
     val levels by vm.stabilizationLevels.collectAsState()
     val running by vm.stabilizationRunning.collectAsState()
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = SurfaceDark, tonalElevation = 0.dp) {
-        Column(
-            Modifier
-                .padding(horizontal = 18.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Stabilize", color = Color.White, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Done", color = PrimaryAccent, fontSize = 15.sp,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(6.dp),
-                )
-            }
+    SheetScaffold(
+        title = "Stabilize",
+        onDismiss = onDismiss,
+        doneColor = ToolTints.stabilize,
+    ) {
             Text(
                 "Analisi offline del movimento (tracker per-frame, correzione dx/dy/" +
                     "rotazione/scala attenuata) applicata all'export con crop dedicato.",
@@ -127,4 +118,3 @@ fun StabilizeSheet(
             Spacer(Modifier.height(24.dp))
         }
     }
-}

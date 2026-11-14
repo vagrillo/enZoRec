@@ -55,22 +55,11 @@ fun VibeDirectorSheet(
     val skill by vm.vibeSkill.collectAsState()
     val prompt by vm.vibePrompt.collectAsState()
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        tonalElevation = 0.dp,
+    SheetScaffold(
+        title = "Vibe Director",
+        onDismiss = onDismiss,
+        doneColor = ToolTints.vibe,
     ) {
-        Column(Modifier.padding(horizontal = 18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Vibe Director", color = Color.White, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Done",
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(6.dp),
-                )
-            }
             Text(
                 "Regia automatica sul montaggio: tagli, zoom, colore. " +
                     "Il rendering resta all'export YouRec.",
@@ -203,7 +192,6 @@ fun VibeDirectorSheet(
             Spacer(Modifier.height(22.dp))
         }
     }
-}
 
 private fun typeLabel(type: String): String = when (type) {
     "zoom" -> "🔍 Zoom"
@@ -211,4 +199,4 @@ private fun typeLabel(type: String): String = when (type) {
     "cut" -> "✂️ Taglio"
     "camera_switch" -> "🎬 Switch camera"
     else -> type
-}
+    }

@@ -176,6 +176,22 @@ elevated controls `#22252D`, primary red `#FF3B30`, timecode pill
   navigation bar insets must be applied to the bottom bar and editor action
   bar or buttons end up under the gesture bar.
 
+## 2-bis. Spec visiva iOS (da RecorderView/EditorView/EditorTools + screenshot)
+- **Accent rossi**: `Color(red:1, green:0.25, blue:0.29)` = #FF4049 (record/editor);
+  **Done e stati attivi settings**: **ciano** (#3ED1E6 ≈ SwiftUI .cyan);
+  **effetti video/strumenti colore**: **arancio** #F09132 (slider + toggle power).
+- **Foglio modale iOS (SheetScaffold)**: header FISSO — capsula chevron "⌄" a
+  sinistra, titolo centrato semibold, capsula "Done" a destra (ciano o bianco);
+  contenuto scrollabile sotto (max ~86% schermo), dragHandle disattivato,
+  navigationBarsPadding. Mai far scorrere via la "Done".
+- **Slider iOS**: track sottile colorato (arancio/mint) + manopola bianca rotonda,
+  etichetta a sinistra e valore a destra della riga.
+- **Tinte tool** (EditorTools.swift): subtitles ciano, text viola, speed blu,
+  color rosa, stabilize mint, pauses bianco, crop indigo, mirror teal, image/
+  transition/placement arancio, videoEffects/addVideo ciano, audio mint.
+- Capsule controlli record: nero 65% + bordo bianco 30%; controlPlate nero 52%
+  (o bianco 14% con front light).
+
 ## 3. Findings — read before touching these areas
 
 ### 3.1 Camera2

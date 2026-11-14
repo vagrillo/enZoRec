@@ -66,20 +66,11 @@ fun SubtitleSheet(
     var editingId by remember { mutableStateOf<String?>(null) }
     var editText by remember { mutableStateOf("") }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = SurfaceDark, tonalElevation = 0.dp) {
-        Column(
-            Modifier
-                .padding(horizontal = 18.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Subtitles", color = Color.White, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Done", color = PrimaryAccent, fontSize = 15.sp,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(6.dp),
-                )
-            }
+    SheetScaffold(
+        title = "Subtitles",
+        onDismiss = onDismiss,
+        doneColor = ToolTints.subtitles,
+    ) {
             Text(
                 "ASR on-device (vosk, offline): modelli ~40 MB scaricati una volta. " +
                     "I tempi sono stime dalla trascrizione; le cue sono editabili.",
@@ -284,4 +275,3 @@ fun SubtitleSheet(
             Spacer(Modifier.height(24.dp))
         }
     }
-}

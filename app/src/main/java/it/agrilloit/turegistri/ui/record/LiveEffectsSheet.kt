@@ -33,6 +33,7 @@ import it.agrilloit.turegistri.ui.theme.GreenBadge
 import it.agrilloit.turegistri.ui.theme.PrimaryAccent
 import it.agrilloit.turegistri.ui.theme.SurfaceDark
 import it.agrilloit.turegistri.ui.theme.SurfaceElevated
+import it.agrilloit.turegistri.ui.editor.SheetScaffold
 import it.agrilloit.turegistri.ui.theme.TextSecondary
 
 /**
@@ -51,20 +52,11 @@ fun LiveEffectsSheet(
 ) {
     var strengthLocal by remember(activeId) { mutableStateOf(strength) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = SurfaceDark, tonalElevation = 0.dp) {
-        Column(
-            Modifier
-                .padding(horizontal = 18.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Effetti live", color = Color.White, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Done", color = PrimaryAccent, fontSize = 15.sp,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(6.dp),
-                )
-            }
+    SheetScaffold(
+        title = "Effetti live",
+        onDismiss = onDismiss,
+        doneColor = it.agrilloit.turegistri.ui.theme.CyanDone,
+    ) {
             Text(
                 "Applicati in anteprima e registrati nel composito (video effects live).",
                 color = TextSecondary, fontSize = 12.sp,
@@ -146,4 +138,3 @@ fun LiveEffectsSheet(
             Spacer(Modifier.height(24.dp))
         }
     }
-}

@@ -78,22 +78,11 @@ fun ToolsDrawer(
         ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let(onAddVideo) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        tonalElevation = 0.dp,
+    SheetScaffold(
+        title = "Tools",
+        onDismiss = onDismiss,
+        doneColor = ToolTints.videoEffects,
     ) {
-        Column(Modifier.padding(horizontal = 18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Tools", color = Color.White, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Done",
-                    color = PrimaryAccent,
-                    fontSize = 15.sp,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(6.dp),
-                )
-            }
 
             Spacer(Modifier.height(16.dp))
             Text("Add media", color = Color.White, fontSize = 14.sp)
@@ -347,10 +336,8 @@ fun ToolsDrawer(
                 }
                 Switch(checked = false, onCheckedChange = { }, colors = SwitchDefaults.colors(checkedTrackColor = CyanAccent))
             }
-            Spacer(Modifier.height(24.dp))
         }
     }
-}
 
 /** Sheet di export (spec 2.8): progress, share e salvataggio in galleria. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -396,21 +383,16 @@ fun ExportSheet(
     val vmCodec by vm.exportCodec.collectAsState()
     val vmFps by vm.exportFps.collectAsState()
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        tonalElevation = 0.dp,
+    SheetScaffold(
+        title = "Export",
+        onDismiss = onDismiss,
+        doneColor = it.agrilloit.turegistri.ui.theme.CyanDone,
     ) {
-        Column(Modifier.padding(horizontal = 18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Export", color = Color.White, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "${clips.size} clips · ${formatTimecode(totalMs)}",
-                    color = TextSecondary,
-                    fontSize = 13.sp,
-                )
-            }
+        Text(
+            "${clips.size} clips · ${formatTimecode(totalMs)}",
+            color = TextSecondary,
+            fontSize = 13.sp,
+        )
 
             Spacer(Modifier.height(14.dp))
             Box(
@@ -585,4 +567,3 @@ fun ExportSheet(
             Spacer(Modifier.height(22.dp))
         }
     }
-}

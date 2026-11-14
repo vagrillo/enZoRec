@@ -21,6 +21,8 @@ val TextPrimary = Color(0xFFFFFFFF)
 val TextSecondary = Color(0xFF8E8E93)
 val DividerDark = Color(0xFF2C2C2E)
 val TrackVideo = Color(0xFF1C1C1E)
+val CyanDone = Color(0xFF3ED1E6)   // "Done" e stati attivi dei settings (iOS)
+val OrangeFx = Color(0xFFF09132)   // effetti video / strumenti colore (iOS)
 val TrackAudio = Color(0xFF12242B)
 
 private val YouRecColors = darkColorScheme(

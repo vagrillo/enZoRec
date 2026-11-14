@@ -22,6 +22,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import it.agrilloit.turegistri.ui.editor.SheetScaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -65,30 +66,11 @@ fun CameraSettingsSheet(
     fun labelOf(id: String?): String =
         id?.let { wanted -> catalog.firstOrNull { it.id == wanted }?.label } ?: "Auto"
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        tonalElevation = 0.dp,
+    SheetScaffold(
+        title = "Camera settings",
+        onDismiss = onDismiss,
+        doneColor = it.agrilloit.turegistri.ui.theme.CyanDone,
     ) {
-        Column(Modifier.padding(horizontal = 18.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Spacer(Modifier.weight(1f))
-                Text("Camera settings", color = Color.White, fontSize = 17.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Done",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(SurfaceElevated)
-                        .clickable(onClick = onDismiss)
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
-                )
-            }
 
             Spacer(Modifier.height(16.dp))
 
@@ -217,7 +199,6 @@ fun CameraSettingsSheet(
 
             Spacer(Modifier.height(18.dp))
         }
-    }
 
     if (showPickerA) {
         CameraPickerDialog(

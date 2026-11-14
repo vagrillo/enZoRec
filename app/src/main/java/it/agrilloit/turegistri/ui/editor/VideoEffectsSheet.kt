@@ -57,32 +57,17 @@ fun VideoEffectsSheet(
     var section by remember { mutableStateOf(VideoEffectCatalog.SECTIONS.first()) }
     var expandedUid by remember { mutableStateOf<String?>(null) }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        tonalElevation = 0.dp,
+    SheetScaffold(
+        title = "Video effects",
+        onDismiss = onDismiss,
+        doneColor = Color.White,
     ) {
-        Column(
-            Modifier
-                .padding(horizontal = 18.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Video effects", color = Color.White, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Done",
-                    color = PrimaryAccent,
-                    fontSize = 15.sp,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(6.dp),
-                )
-            }
-            Text(
-                if (clip == null) "Seleziona un clip nella timeline per applicare effetti"
-                else "Clip selezionato: ${clip.effects.size} effetti",
-                color = TextSecondary,
-                fontSize = 12.sp,
-            )
+        Text(
+            if (clip == null) "Seleziona un clip nella timeline per applicare effetti"
+            else "Clip selezionato: ${clip.effects.size} effetti",
+            color = TextSecondary,
+            fontSize = 12.sp,
+        )
 
             Spacer(Modifier.height(14.dp))
             if (clip != null) {
@@ -246,7 +231,5 @@ fun VideoEffectsSheet(
                         Spacer(Modifier.height(8.dp))
                     }
             }
-            Spacer(Modifier.height(24.dp))
         }
     }
-}

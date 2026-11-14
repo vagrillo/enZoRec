@@ -80,26 +80,14 @@ fun LutSheet(
 
     LaunchedEffect(clip) { luts = vm.importedLuts() }
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        tonalElevation = 0.dp,
+    SheetScaffold(
+        title = "Color LUTs",
+        onDismiss = onDismiss,
+        doneColor = ToolTints.videoEffects,
     ) {
-        Column(
-            Modifier
-                .padding(horizontal = 18.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Color LUTs", color = Color.White, fontSize = 18.sp)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    "Done",
-                    color = PrimaryAccent,
-                    fontSize = 15.sp,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(6.dp),
-                )
-            }
+        Text(
+            "", color = Color.Transparent, fontSize = 1.sp,
+        )
             Text(
                 if (clip == null) "Seleziona un clip per applicare una LUT"
                 else "Applica al clip selezionato (ordine effetti)",
@@ -171,7 +159,5 @@ fun LutSheet(
                 }
                 Spacer(Modifier.height(6.dp))
             }
-            Spacer(Modifier.height(24.dp))
         }
     }
-}
