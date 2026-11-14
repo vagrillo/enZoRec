@@ -813,6 +813,30 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                 val window = peaks.subList(from, to).toList()
                 _waveforms.value = _waveforms.value + (l.clip.id to window)
             }
+
+            // Il restore da editJson può avere id di clip diversi da quelli
+            // generati in `loaded`: rimappa miniature/waveform per PATH sui clip
+            // finali, altrimenti timeline senza miniature e senza waveform.
+            val finalClips = _clips.value
+            if (finalClips.isNotEmpty() && loaded.isNotEmpty()) {
+                val oldIdToPath = loaded.associate { it.clip.id to it.clip.path }
+                val thumbsByPath = HashMap<String, List<Bitmap>>()
+                _thumbnails.value.forEach { (id, bms) ->
+                    oldIdToPath[id]?.let { thumbsByPath[it] = bms }
+                }
+                val wavesByPath = HashMap<String, List<Float>>()
+                _waveforms.value.forEach { (id, peaks) ->
+                    oldIdToPath[id]?.let { wavesByPath[it] = peaks }
+                }
+                val finalThumbs = HashMap<String, List<Bitmap>>()
+                val finalWaves = HashMap<String, List<Float>>()
+                for (c in finalClips) {
+                    thumbsByPath[c.path]?.let { finalThumbs[c.id] = it }
+                    wavesByPath[c.path]?.let { finalWaves[c.id] = it }
+                }
+                if (finalThumbs.isNotEmpty()) _thumbnails.value = finalThumbs
+                if (finalWaves.isNotEmpty()) _waveforms.value = finalWaves
+            }
         }
     }
 

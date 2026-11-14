@@ -13,8 +13,8 @@ android {
         applicationId = "it.agrilloit.yourec"
         minSdk = 30
         targetSdk = 35
-        versionCode = 46
-        versionName = "3.4.3"
+        versionCode = 47
+        versionName = "3.4.4"
     }
 
     buildTypes {

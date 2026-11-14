@@ -168,8 +168,14 @@ class TitleOverlay(
 
     override fun getTextureId(presentationTimeUs: Long): Int {
         val tMs = itemStartMs + presentationTimeUs / 1000
-        // step 33ms: texture rigenerata max ~30fps
-        val key = tMs / 33
+        // Cache per CONTENUTO: senza motion il bitmap è costante (texture creata
+        // una volta); con motion rigenera solo nei bucket da 33ms del movimento.
+        val key: Long = if (design.motion == "none") {
+            (design.text.hashCode() * 31 + design.fontSizeSp.toInt()).toLong()
+        } else {
+            (design.text.hashCode() * 31 + design.fontSizeSp.toInt()).toLong() * 1000 +
+                (tMs / 33).coerceIn(0, 999)
+        }
         if (key != cachedKey) {
             if (cachedTex >= 0) {
                 runCatching { GlUtil.deleteTexture(cachedTex) }
@@ -316,14 +322,15 @@ class SubtitlesOverlay(
 
     override fun getTextureId(presentationTimeUs: Long): Int {
         val tMs = itemStartMs + presentationTimeUs / 1000
-        val key = tMs / 33
+        // Cache per cue attiva (il bitmap cambia solo al cambio di cue).
+        val cue = cues.firstOrNull { tMs >= it.startMs && tMs <= it.endMs }
+        val key: Long = cue?.let { (it.id.hashCode().toLong() shl 16) + it.text.length } ?: -1L
         if (key != cachedKey) {
             if (cachedTex >= 0) {
                 runCatching { GlUtil.deleteTexture(cachedTex) }
                 cachedTex = -1
             }
             val size = cachedSize ?: Size(1080, 1920)
-            val cue = cues.firstOrNull { tMs >= it.startMs && tMs <= it.endMs }
             if (cue != null) {
                 val design = style.toTitleDesign(cue.text, cue.startMs, cue.endMs)
                 val bmp = TitleRenderer.render(design, size.width, size.height, tMs)

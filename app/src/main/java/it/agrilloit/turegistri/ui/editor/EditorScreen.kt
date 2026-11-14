@@ -3,6 +3,7 @@ package it.agrilloit.turegistri.ui.editor
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -13,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -70,18 +72,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -270,19 +276,24 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
             )
         }
 
-        // Preview
-        AndroidView(
-            factory = { ctx ->
-                androidx.media3.ui.PlayerView(ctx).apply {
-                    this.player = player
-                    useController = false
-                }
-            },
-            modifier = Modifier
+        // Preview (con overlay anteprima live: titolo/immagine/sottotitoli)
+        Box(
+            Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .background(Color.Black),
-        )
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    androidx.media3.ui.PlayerView(ctx).apply {
+                        this.player = player
+                        useController = false
+                    }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+            OverlayPreviewLayer(vm = vm, playhead = playhead)
+        }
 
         // Barra controlli timecode
         Row(
@@ -482,37 +493,28 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
                 modifier = Modifier.size(30.dp).clickable { vm.seekBookmark(1) }.padding(4.dp))
         }
 
-        // Trim del clip selezionato (maniglie in/out)
+        // Trim del clip selezionato: valori compatti (trim vero dalle maniglie
+        // bianche sulla timeline, stile iOS — niente slider giganti)
         selection?.let { sel ->
             val clip = clips.firstOrNull { it.id == sel }
             if (clip != null) {
-                val selState = selection
-                Column(
+                Row(
                     Modifier
                         .fillMaxWidth()
                         .background(SurfaceDark)
-                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         "Trim · in ${formatTimecode(clip.trimStartMs)} · out ${formatTimecode(clip.trimEndMs)}",
                         color = TextSecondary,
                         fontSize = 11.sp,
+                        modifier = Modifier.weight(1f),
                     )
-                    Slider(
-                        value = clip.trimStartMs.toFloat(),
-                        onValueChange = {
-                            vm.trim(clip.id, it.toLong(), clip.trimEndMs)
-                        },
-                        valueRange = 0f..clip.sourceDurationMs.toFloat(),
-                        colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = Color.White),
-                    )
-                    Slider(
-                        value = clip.trimEndMs.toFloat(),
-                        onValueChange = {
-                            vm.trim(clip.id, clip.trimStartMs, it.toLong())
-                        },
-                        valueRange = 0f..clip.sourceDurationMs.toFloat(),
-                        colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = Color.White),
+                    Text(
+                        "trascina le maniglie bianche",
+                        color = TextSecondary,
+                        fontSize = 9.sp,
                     )
                 }
             }
@@ -597,6 +599,88 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
     }
 }
 
+/**
+ * Anteprima live degli overlay (titolo/immagine/sottotitoli) sopra il player:
+ * i bitmap sono renderizzati alla stessa aspect del canvas di export
+ * (720×1280) e letterboxati come il video, così le posizioni coincidono
+ * con quelle dell'export.
+ */
+@Composable
+private fun OverlayPreviewLayer(vm: EditorViewModel, playhead: Long) {
+    val title by vm.titleDesign.collectAsState()
+    val imageOverlay by vm.imageOverlay.collectAsState()
+    val cues by vm.subtitleCues.collectAsState()
+    val style by vm.subtitleStyle.collectAsState()
+
+    val canvasW = 720
+    val canvasH = 1280
+
+    Box(Modifier.fillMaxSize()) {
+        // Titolo
+        title?.let { t ->
+            if (t.text.isNotBlank() && playhead in t.startMs..t.endMs) {
+                val bmp = remember(t, playhead / 120) {
+                    TitleRenderer.render(t, canvasW, canvasH, playhead)
+                }
+                bmp?.let {
+                    Image(
+                        it.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+        // Immagine/logo (scala = frazione della larghezza canvas, come all'export)
+        imageOverlay?.let { im ->
+            if (playhead in im.startMs..im.endMs) {
+                val bmp = remember(im.path) {
+                    android.graphics.BitmapFactory.decodeFile(im.path)
+                }
+                bmp?.let {
+                    val density = LocalDensity.current.density
+                    val wDp = (canvasW * im.scale / density).dp
+                    Image(
+                        it.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .align(
+                                BiasAlignment(
+                                    ((im.posX * 2f - 1f)).coerceIn(-1f, 1f),
+                                    ((im.posY * 2f - 1f)).coerceIn(-1f, 1f),
+                                )
+                            )
+                            .width(wDp)
+                            .graphicsLayer { alpha = im.alpha },
+                    )
+                }
+            }
+        }
+        // Sottotitoli (cue attiva)
+        if (style.burnIn) {
+            val cue = cues.firstOrNull {
+                it.enabled && playhead >= it.startMs && playhead <= it.endMs
+            }
+            cue?.let { c ->
+                val design = style.toTitleDesign(c.text, c.startMs, c.endMs)
+                val bmp = remember(c.id, style) {
+                    TitleRenderer.render(design, canvasW, canvasH, playhead)
+                }
+                bmp?.let {
+                    Image(
+                        it.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+    }
+}
+
 private fun bookmarksNear(playheadMs: Long, bookmarks: List<Long>): Boolean =
     bookmarks.any { abs(it - playheadMs) < 100 }
 
@@ -642,7 +726,7 @@ private fun TimelineCanvas(
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     val inRuler = down.position.y < 42f
-                    var mode = 0 // 0=indéciso, 1=scrub/pan, 2=pinch
+                    var mode = 0 // 0=tracce/tap, 1=scrub, 2=pinch
                     var moved = false
                     var lastX = down.position.x
                     var lastDist = 0f
@@ -674,29 +758,29 @@ private fun TimelineCanvas(
                         val change = pressed[0]
                         val delta = change.positionChange()
                         if (mode == 2) continue // dita rimaste dopo il pinch: ignora
-                        if (mode == 0 && delta != Offset.Zero) mode = 1
-                        if (mode == 1) {
-                            if (inRuler) {
-                                moved = true
-                                var x = change.position.x
-                                // Auto-scroll ai bordi per raggiungere tutta la timeline.
-                                if (x > size.width - 70) {
-                                    x += 16f
-                                    scrollState.dispatchRawDelta(16f)
-                                } else if (x < 70 && scrollState.value > 0) {
-                                    scrollState.dispatchRawDelta(-16f)
-                                    x -= 16f
-                                }
-                                lastX = x
-                                onScrub((x / pxPerSec * 1000).toLong())
+                        if (inRuler) {
+                            // scrub: mode=1 dal down, consuma tutto
+                            mode = 1
+                            moved = true
+                            var x = change.position.x
+                            // Auto-scroll ai bordi per raggiungere tutta la timeline.
+                            if (x > size.width - 70) {
+                                x += 16f
+                                scrollState.dispatchRawDelta(16f)
+                            } else if (x < 70 && scrollState.value > 0) {
+                                scrollState.dispatchRawDelta(-16f)
+                                x -= 16f
                             }
+                            lastX = x
+                            onScrub((x / pxPerSec * 1000).toLong())
                             change.consume()
                         }
-                        // trascina sulle tracce: NON consumato → pan via horizontalScroll
+                        // tracce: NON consumare → pan via horizontalScroll;
+                        // il tap (selezione/seek) scatta su release come su iOS
                     } while (event.changes.any { it.pressed })
-                    if (mode == 1 && inRuler && moved) {
+                    if (inRuler && moved) {
                         onScrubEnd((lastX / pxPerSec * 1000).toLong())
-                    } else if (mode == 0 && !inRuler) {
+                    } else if (!inRuler) {
                         onTap(down.position.x, down.position.y)
                     }
                 }
