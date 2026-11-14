@@ -25,8 +25,27 @@ class ProjectsRepository(private val context: Context) {
 
     suspend fun get(id: String): ProjectEntity? = db.projectDao().get(id)
 
-    /** Id del progetto più recente (per il tab Edit). */
     suspend fun latestProjectId(): String? = db.projectDao().mostRecent()?.id
+
+    /** Salva lo stato di editing (clips JSON) nel progetto. */
+    suspend fun saveEditJson(projectId: String, json: String) {
+        db.projectDao().get(projectId)?.let {
+            update(it.copy(editJson = json))
+        }
+    }
+
+    /** Salva i bookmark dell'editor nel take corrente del progetto. */
+    suspend fun saveMarkers(projectId: String, markersJson: String) {
+        val takes = db.takeDao().forProject(projectId)
+        takes.lastOrNull()?.let { db.takeDao().update(it.copy(markersJson = markersJson)) }
+    }
+
+    /** Durata (ms) del composito del take più recente. */
+    suspend fun latestTakeDurationMs(projectId: String): Long {
+        val t = db.takeDao().forProject(projectId).lastOrNull() ?: return 0L
+        val path = t.compositePath ?: return 0L
+        return runCatching { videoDurationMs(path) }.getOrDefault(0L)
+    }
     suspend fun takeCounts(): Map<String, Int> =
         db.takeDao().counts().associate { it.projectId to it.cnt }
 

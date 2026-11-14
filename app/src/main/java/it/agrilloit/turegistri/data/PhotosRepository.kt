@@ -33,6 +33,8 @@ class PhotosRepository(private val context: Context) {
     }
 
     /** Salva byte JPEG già codificati in Pictures/YouRec. */
+
+    /** Salva byte JPEG già codificati (foto max risoluzione). */
     fun saveBytes(bytes: ByteArray): Uri? {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, "YouRec_${System.currentTimeMillis()}.jpg")
@@ -44,7 +46,7 @@ class PhotosRepository(private val context: Context) {
             ?: return null
         runCatching {
             resolver.openOutputStream(uri)?.use { out -> out.write(bytes) }
-        }.onFailure { return null }
+        }
         return uri
     }
 

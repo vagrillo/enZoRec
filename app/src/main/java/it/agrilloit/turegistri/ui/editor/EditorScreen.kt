@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.OpenWith
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -151,6 +152,7 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
 
     var showTools by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }
+    var showVibe by remember { mutableStateOf(false) }
     var fullscreenPreview by remember { mutableStateOf(false) }
 
     // ------------------------------------------------------------ player
@@ -409,6 +411,9 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
             }
             ActionIcon(Icons.AutoMirrored.Filled.Undo, "Undo", if (canUndo) Color.White else TextSecondary) { vm.undo() }
             ActionIcon(Icons.AutoMirrored.Filled.Redo, "Redo", if (canRedo) Color.White else TextSecondary) { vm.redo() }
+            ActionIcon(Icons.Filled.Movie, "Vibe", if (vm.vibeDecisions.value.isNotEmpty()) GreenBadge else Color.White) {
+                showVibe = true
+            }
             ActionIcon(Icons.Filled.KeyboardArrowLeft, "MoveL", if (selection != null) Color.White else TextSecondary) {
                 selection?.let { vm.move(it, -1) }
             }
@@ -456,6 +461,9 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
     }
 
     // ------------------------------------------------------------ sheets
+    if (showVibe) {
+        VibeDirectorSheet(vm = vm, onDismiss = { showVibe = false })
+    }
     if (showTools) {
         ToolsDrawer(
             onAddVideo = { uri -> vm.addVideoClip(uri) },

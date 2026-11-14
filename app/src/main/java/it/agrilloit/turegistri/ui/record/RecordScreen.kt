@@ -904,6 +904,7 @@ private fun QuickControlsRow(
             .padding(horizontal = 10.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        val focusNow = if (activeLane == 0) focusA else vm.focusB.collectAsState().value
         // Riga unica stile YouRec iOS: lente | zoom | focus
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
@@ -927,7 +928,7 @@ private fun QuickControlsRow(
             )
             VerticalDivider()
             // Preset zoom
-            ZOOM_PRESETS.take(4).forEachIndexed { i, z ->
+            ZOOM_PRESETS.forEachIndexed { i, z ->
                 if (i > 0) Spacer(Modifier.width(2.dp))
                 val selected = abs(zoom - z) < 0.05f
                 Text(
@@ -942,7 +943,7 @@ private fun QuickControlsRow(
             VerticalDivider()
             Text(
                 "AF",
-                color = if (!focusA.first) Color.White else TextSecondary,
+                color = if (!focusNow.first) Color.White else TextSecondary,
                 fontSize = 13.sp,
                 modifier = Modifier
                     .clickable { vm.setFocus(activeLane, false) }
@@ -950,17 +951,17 @@ private fun QuickControlsRow(
             )
             Text(
                 "MF",
-                color = if (focusA.first) PrimaryAccent else TextSecondary,
+                color = if (focusNow.first) PrimaryAccent else TextSecondary,
                 fontSize = 13.sp,
                 modifier = Modifier
-                    .clickable { vm.setFocus(activeLane, true, focusA.second) }
+                    .clickable { vm.setFocus(activeLane, true, focusNow.second) }
                     .padding(horizontal = 8.dp, vertical = 6.dp),
             )
         }
-        if (focusA.first) {
+        if (focusNow.first) {
             Spacer(Modifier.height(4.dp))
             Slider(
-                value = focusA.second,
+                value = focusNow.second,
                 onValueChange = { vm.setFocus(activeLane, true, it) },
                 valueRange = 0f..10f,
                 colors = SliderDefaults.colors(thumbColor = PrimaryAccent),

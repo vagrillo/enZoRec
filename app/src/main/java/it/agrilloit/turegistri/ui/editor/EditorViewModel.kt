@@ -5,8 +5,19 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import it.agrilloit.turegistri.audio.AudioChainProcessor
+import it.agrilloit.turegistri.audio.CensorProcessor
+import it.agrilloit.turegistri.audio.ChainKind
+import it.agrilloit.turegistri.audio.ChainStage as AudioChainStage
+import it.agrilloit.turegistri.audio.GainProcessor
+import it.agrilloit.turegistri.audio.NoiseReducer
+import it.agrilloit.turegistri.audio.SilenceMuterProcessor
+import it.agrilloit.turegistri.audio.VoiceEnhanceProcessor
 import it.agrilloit.turegistri.data.ProjectsRepository
 import it.agrilloit.turegistri.data.TakeEntity
+import it.agrilloit.turegistri.model.ColorGrade
+import it.agrilloit.turegistri.vibe.VibeDecision
+import it.agrilloit.turegistri.vibe.VibeDirector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,6 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import kotlin.math.abs
 
 /**
  * Clip dell'editor: un video sorgente (take composito/cam o importato) con trim.
@@ -26,8 +38,21 @@ data class EditClip(
     val sourceDurationMs: Long,
     /** false se il file sorgente non contiene traccia audio (es. fallback cam). */
     val hasAudioTrack: Boolean = true,
+    /** Volume 0..2 (1 = neutro). */
+    val volume: Float = 1f,
+    /** Muto (volume 0) — switch separato dallo slider. */
+    val muted: Boolean = false,
+    /** Velocità di riproduzione (1 = neutro, 0.25..4) — audio e video sincronizzati. */
+    val speed: Float = 1f,
+    /** Specchia orizzontalmente il clip. */
+    val mirror: Boolean = false,
+    /** Color correction: exposure EV, contrast, saturation, warmth. */
+    val exposure: Float = 0f,
+    val contrast: Float = 1f,
+    val saturation: Float = 1f,
+    val warmth: Float = 0f,
 ) {
-    fun effectiveMs(): Long = (trimEndMs - trimStartMs).coerceAtLeast(0)
+    fun effectiveMs(): Long = ((trimEndMs - trimStartMs) / speed.coerceAtLeast(0.1f)).toLong().coerceAtLeast(0)
 }
 
 class EditorViewModel(app: Application, private val projectId: String) : AndroidViewModel(app) {
@@ -56,6 +81,81 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
     val exportProgress = MutableStateFlow<Float?>(null)
     val exportPath = MutableStateFlow<String?>(null)
     val exportError = MutableStateFlow<String?>(null)
+    val exportFps = MutableStateFlow(30)
+
+    /** Enhance audio: gain normalizzato + soft limiter dopo la noise reduction. */
+    val enhanceAudio = MutableStateFlow(false)
+    /** Match listening levels: equalizza i volumi dei clip sui waveform. */
+    val matchLevels = MutableStateFlow(false)
+    /** Rimuovi pause: taglia i segmenti silenziosi della timeline. */
+    val removePauses = MutableStateFlow(false)
+
+    /** Bookmark dell'editor (ms sulla timeline modificata). */
+    val bookmarks = MutableStateFlow<List<Long>>(emptyList())
+
+    // --- Catena audio ordinata (port di AudioEffect iOS) ---
+    data class ChainStage(
+        val id: String,
+        val kind: ChainKind,
+        val enabled: Boolean = true,
+        val amount: Double = 0.0,
+        val gainDb: Double = 6.0,
+        val frequency: Double = 1800.0,
+    )
+
+    val audioChain = MutableStateFlow<List<ChainStage>>(
+        listOf(
+            ChainStage("hp1", ChainKind.HIGH_PASS, true, 0.0, 0.0, 120.0),
+            ChainStage("eq1", ChainKind.EQUALIZER, true, 0.0, 3.0, 3000.0),
+        )
+    )
+
+    // --- Color look di progetto (iOS ColorSettings) ---
+    data class ColorLook(
+        val exposure: Float = 0f, // EV
+        val highlights: Float = 0f, // −1..1 (recupero luci, approx lineare)
+        val warmth: Float = 0f, // −1..1
+        val tint: Float = 0f, // −1..1 (verde/magenta)
+        val contrast: Float = 1f,
+        val saturation: Float = 1f,
+        val preset: String = "natural", // natural | noir | bleachBypass | dayForNight
+    ) {
+        fun isIdentity(): Boolean =
+            exposure == 0f && highlights == 0f && warmth == 0f && tint == 0f &&
+                contrast == 1f && saturation == 1f && preset == "natural"
+    }
+
+    val colorLook = MutableStateFlow(ColorLook())
+
+    // --- Censor audio (finestre silenziate all'export) ---
+    val censorRanges = MutableStateFlow<List<Pair<Long, Long>>>(emptyList())
+
+    // --- Overlay di testo (progetto: uno per l'export) ---
+    val textOverlayText = MutableStateFlow("")
+    val textOverlayBottom = MutableStateFlow(true)
+
+    /** Applica la catena audio ordinata (biquad) all'export. */
+    fun buildAudioChainProcessor(): androidx.media3.common.audio.AudioProcessor =
+        AudioChainProcessor(
+            audioChain.value.map {
+                AudioChainStage(
+                    it.kind, it.enabled, it.amount, it.gainDb, it.frequency
+                )
+            },
+            48000,
+            2,
+        )
+
+    /** Matrice colore di progetto (ColorLook) come float[16] per l'anteprima. */
+    fun colorLookMatrix(): FloatArray = when (colorLook.value.preset) {
+        "noir" -> ColorGrade.noir()
+        "bleachBypass" -> ColorGrade.bleachBypass()
+        "dayForNight" -> ColorGrade.dayForNight()
+        else -> ColorGrade.applyControls(
+            colorLook.value.exposure, colorLook.value.contrast,
+            colorLook.value.saturation, colorLook.value.warmth,
+        )
+    }
 
     private val undoStack = ArrayDeque<List<EditClip>>()
     private val redoStack = ArrayDeque<List<EditClip>>()
@@ -114,6 +214,48 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                 )
             }
             _clips.value = loaded.map { it.clip }
+            // Ripristina l'editing salvato nel progetto (clips in ordine, trims).
+            project?.editJson?.takeIf { it.isNotBlank() }?.let { json ->
+                runCatching {
+                    val arr = org.json.JSONArray(json)
+                    val restored = ArrayList<EditClip>()
+                    for (i in 0 until arr.length()) {
+                        val o = arr.getJSONObject(i)
+                        val path = o.getString("path")
+                        val srcDur = runCatching { repository.videoDurationMs(path) }.getOrDefault(0L)
+                        if (srcDur <= 0) continue
+                        val vol = o.optDouble("volume", 1.0).toFloat()
+                        val rms = o.optDouble("rms", 0.0).toFloat().takeIf { it > 0f }
+                        val gain = if (matchLevels.value && rms != null)
+                            (0.35f / rms).coerceIn(0.25f, 4f) * vol else vol
+                        restored.add(
+                            EditClip(
+                                id = o.optString("id", UUID.randomUUID().toString()),
+                                path = path,
+                                trimStartMs = o.getLong("trimStartMs"),
+                                trimEndMs = o.getLong("trimEndMs"),
+                                sourceDurationMs = srcDur,
+                                hasAudioTrack = o.optBoolean("hasAudioTrack", true),
+                                volume = gain,
+                                speed = o.optDouble("speed", 1.0).toFloat().coerceIn(0.25f, 4f),
+                                mirror = o.optBoolean("mirror", false),
+                                exposure = o.optDouble("exposure", 0.0).toFloat(),
+                                contrast = o.optDouble("contrast", 1.0).toFloat(),
+                                saturation = o.optDouble("saturation", 1.0).toFloat(),
+                                warmth = o.optDouble("warmth", 0.0).toFloat(),
+                            )
+                        )
+                    }
+                    if (restored.isNotEmpty()) _clips.value = restored
+                }
+            }
+            runCatching {
+                val take = repository.takes(projectId).lastOrNull()
+                val mk = org.json.JSONArray(take?.markersJson ?: "[]")
+                val bms = ArrayList<Long>()
+                for (i in 0 until mk.length()) bms.add(mk.getLong(i))
+                bookmarks.value = bms
+            }.onFailure { bookmarks.value = emptyList() }
             loaded.forEach {
                 android.util.Log.d("YouRecEdit", "clip: ${it.clip.path} hasAudio=${it.clip.hasAudioTrack} dur=${it.clip.sourceDurationMs}")
             }
@@ -124,8 +266,7 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                     repository.timelineThumbnails(l.clip.path))
             }
 
-            // Waveform allineata: i mic partono prima dei recorder (offset in
-            // session.json) e si fermano dopo -> ritaglia la finestra del video.
+            // Waveform allineata + RMS per match levels.
             for (l in loaded) {
                 val wav = java.io.File(l.take.dirPath, "mic_0.wav")
                 if (!wav.exists() || wav.length() <= 44) continue
@@ -185,7 +326,49 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
         redoStack.clear()
         undoAvailable.value = true
         redoAvailable.value = false
+        saveEditJson()
     }
+
+    /** Serializza l'edit corrente nel campo editJson del progetto. */
+    fun saveEditJson() {
+        val clipsNow = _clips.value
+        val bms = bookmarks.value
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val arr = org.json.JSONArray()
+                for (c in clipsNow) {
+                    arr.put(
+                        org.json.JSONObject()
+                            .put("id", c.id)
+                            .put("path", c.path)
+                            .put("trimStartMs", c.trimStartMs)
+                            .put("trimEndMs", c.trimEndMs)
+                            .put("hasAudioTrack", c.hasAudioTrack)
+                            .put("volume", c.volume.toDouble())
+                            .put("speed", c.speed.toDouble())
+                            .put("mirror", c.mirror)
+                            .put("exposure", c.exposure.toDouble())
+                            .put("contrast", c.contrast.toDouble())
+                            .put("saturation", c.saturation.toDouble())
+                            .put("warmth", c.warmth.toDouble())
+                    )
+                }
+                repository.saveEditJson(projectId, arr.toString())
+                if (bms.isNotEmpty()) {
+                    val mk = org.json.JSONArray()
+                    for (m in bms) mk.put(m)
+                    repository.saveMarkers(projectId, mk.toString())
+                }
+            }
+        }
+    }
+
+    fun addBookmark() {
+        bookmarks.value = bookmarks.value + vm_positionSnapshot()
+        saveEditJson()
+    }
+
+    private fun vm_positionSnapshot(): Long = playheadMs.value
 
     fun undo() {
         val prev = undoStack.removeLastOrNull() ?: return
@@ -289,6 +472,131 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
 
     // ------------------------------------------------------------ export
 
+    /**
+     * Match listening levels: gain per clip calcolato dai waveform peaks
+     * (RMS medio) verso un target comune, clampato per sicurezza.
+     */
+    fun matchLevelGains(clips: List<EditClip>): Map<String, Float> {
+        if (!matchLevels.value) return emptyMap()
+        val out = mutableMapOf<String, Float>()
+        val target = 0.14f
+        for (c in clips) {
+            val peaks = waveforms.value[c.id] ?: continue
+            if (peaks.isEmpty()) continue
+            var acc = 0f
+            for (p in peaks) acc += p * p
+            val rms = kotlin.math.sqrt(acc / peaks.size).coerceAtLeast(0.005f)
+            out[c.id] = (target / rms).coerceIn(0.3f, 3.5f)
+        }
+        return out
+    }
+
+    /** Effetti video per clip: mirror, color correction, zoom da Vibe Director. */
+    fun clipVideoEffects(clip: EditClip): List<androidx.media3.common.Effect> {
+        val fx = mutableListOf<androidx.media3.common.Effect>()
+        if (clip.mirror) {
+            fx.add(
+                androidx.media3.effect.ScaleAndRotateTransformation.Builder()
+                    .setScale(-1f, 1f).build()
+            )
+        }
+        if (abs(clip.exposure) > 0.01f || abs(clip.contrast - 1f) > 0.01f ||
+            abs(clip.saturation - 1f) > 0.01f || abs(clip.warmth) > 0.01f
+        ) {
+            fx.add(
+                ColorGradeMatrix(
+                    ColorGrade.applyControls(
+                        clip.exposure, clip.contrast, clip.saturation, clip.warmth
+                    )
+                )
+            )
+        }
+        // Zoom del Vibe Director (scale animata via presentation time)
+        val vibe = vibeDecisions.value.filter { it.enabled && it.appliedToClipId == clip.id }
+        for (d in vibe) {
+            if (d.type == "zoom") {
+                fx.add(
+                    VibeZoomEffect(
+                        clip.trimStartMs, clip.trimEndMs,
+                        d.startMs, d.endMs,
+                        d.cx, d.cy, d.strength
+                    )
+                )
+            }
+        }
+        return fx
+    }
+
+    /** Decisioni del Vibe Director (vedi vibe/VibeDirector.kt). */
+    val vibeDecisions = MutableStateFlow<List<VibeDecision>>(emptyList())
+    val vibeRunning = MutableStateFlow(false)
+    val vibeSkill = MutableStateFlow("intervista")
+    val vibePrompt = MutableStateFlow("")
+
+    fun runVibeDirector() {
+        if (vibeRunning.value) return
+        vibeRunning.value = true
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
+            val decisions = VibeDirector.direct(
+                clips = _clips.value,
+                waveforms = waveforms.value,
+                skill = vibeSkill.value,
+                prompt = vibePrompt.value,
+            )
+            vibeDecisions.value = decisions
+            applyVibeDecisions(decisions)
+            vibeRunning.value = false
+        }
+    }
+
+    /**
+     * Applica le decisioni del Vibe Director al MONTAGGIO (niente rendering:
+     * quello resta all'export YouRec):
+     *  - "zoom"  → memorizzato come effetto per clip (VibeZoomEffect a export)
+     *  - "color" → color correction per clip
+     *  - "cut"   → split reale del clip al tempo della decisione
+     */
+    fun applyVibeDecisions(decisions: List<VibeDecision>) {
+        pushUndo()
+        val active = decisions.filter { it.enabled }
+        // 1. Tagli: split dei clip ai confini delle decisioni "cut".
+        var clipsNow = _clips.value
+        for (d in active.filter { it.type == "cut" }) {
+            val idx = clipsNow.indexOfFirst { it.id == d.appliedToClipId }
+            if (idx < 0) continue
+            val clip = clipsNow[idx]
+            val localMs = (d.startMs - clipStartOf(clipsNow, idx)).coerceIn(
+                200L, clip.effectiveMs() - 200L
+            )
+            if (localMs <= 200 || localMs >= clip.effectiveMs() - 200) continue
+            val srcCut = clip.trimStartMs + localMs
+            val left = clip.copy(trimEndMs = srcCut)
+            val right = clip.copy(id = UUID.randomUUID().toString(), trimStartMs = srcCut)
+            clipsNow = clipsNow.toMutableList().apply {
+                removeAt(idx); add(idx, right); add(idx, left)
+            }
+        }
+        // Rinumera le decisioni sui nuovi id (le slice mantengono l'ordine).
+        // 2. Color: aggiusta contrast/saturation sui clip toccati da decisioni "color".
+        val updated = clipsNow.map { c ->
+            var out = c
+            for (d in active.filter { it.type == "color" && it.appliedToClipId == c.id }) {
+                out = out.copy(
+                    contrast = (out.contrast * (1f + d.strength * 0.3f)).coerceIn(0.5f, 2f),
+                    saturation = (out.saturation * (1f + d.strength * 0.4f)).coerceIn(0f, 2f),
+                )
+            }
+            out
+        }
+        _clips.value = updated
+        // Le decisioni zoom restano legate ai clip per id: aggiorna gli id che sono cambiati.
+        vibeDecisions.value = active.filter { it.type != "cut" }
+        saveEditJson()
+    }
+
+    private fun clipStartOf(clips: List<EditClip>, index: Int): Long =
+        clips.take(index).sumOf { it.effectiveMs() }
+
     fun startExport() {
         // I clip ultracorti (<100 ms) possono rompere il muxer: li scartiamo.
         _clips.value = _clips.value.filter { it.effectiveMs() >= 100 }
@@ -308,7 +616,8 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                 val outDir = ProjectsRepository.sessionsRoot(context)
                     .resolve("export").apply { mkdirs() }
                 val outFile = java.io.File(outDir, "export_${System.currentTimeMillis()}.mp4")
-                val items = clipsNow.map { clip ->
+                val matchGainFor = matchLevelGains(clipsNow)
+                val items = clipsNow.mapIndexed { index, clip ->
                     val mediaItem = androidx.media3.common.MediaItem.Builder()
                         .setUri(Uri.parse(clip.path))
                         .setClippingConfiguration(
@@ -318,16 +627,40 @@ class EditorViewModel(app: Application, private val projectId: String) : Android
                                 .build()
                         )
                         .build()
-                    val builder = androidx.media3.transformer.EditedMediaItem.Builder(mediaItem)
-                        .setDurationUs(clip.effectiveMs() * 1000)
-                    if (useNr) {
-                        builder.setEffects(
-                            androidx.media3.transformer.Effects(
-                                listOf(it.agrilloit.turegistri.audio.NoiseReducer.Processor(nrStrength)),
-                                emptyList()
-                            )
+                    val outDur = (clip.effectiveMs() * 1000L)
+                    val audioProcs = mutableListOf<androidx.media3.common.audio.AudioProcessor>()
+                    if (index == 0) {
+                        // Catena audio ordinata (una volta sola, all'inizio della sequence)
+                        audioProcs.add(buildAudioChainProcessor())
+                        if (censorRanges.value.isNotEmpty()) audioProcs.add(
+                            CensorProcessor(censorRanges.value)
+                        )
+                        if (removePauses.value) audioProcs.add(
+                            SilenceMuterProcessor()
                         )
                     }
+                    if (useNr) audioProcs.add(
+                        NoiseReducer.Processor(nrStrength)
+                    )
+                    if (enhanceAudio.value) audioProcs.add(
+                        VoiceEnhanceProcessor()
+                    )
+                    val clipGain = if (clip.muted) 0f else (clip.volume * (matchGainFor[clip.id] ?: 1f))
+                    if (abs(clipGain - 1f) > 0.01f) audioProcs.add(
+                        GainProcessor(clipGain)
+                    )
+                    // (le pause si rimuovono col tool "Pauses" che modifica il montaggio)
+                    if (abs(clip.speed - 1f) > 0.01f) {
+                        val sonic = androidx.media3.common.audio.SonicAudioProcessor()
+                        sonic.setSpeed(clip.speed.coerceIn(0.25f, 4f))
+                        audioProcs.add(sonic)
+                    }
+                    val videoFx = clipVideoEffects(clip)
+                    val builder = androidx.media3.transformer.EditedMediaItem.Builder(mediaItem)
+                        .setDurationUs(outDur)
+                    builder.setEffects(
+                        androidx.media3.transformer.Effects(audioProcs, videoFx)
+                    )
                     builder.build()
                 }
                 val composition = androidx.media3.transformer.Composition.Builder(
