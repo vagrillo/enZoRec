@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Movie
@@ -278,7 +280,7 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (fullscreenPreview) 420.dp else 230.dp)
+                .weight(1f)
                 .background(Color.Black),
         )
 
@@ -352,10 +354,38 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
             val target = (anchorSec * newPx - centroidX).toInt().coerceIn(0, maxScroll)
             scope2.launch { scroll.scrollTo(target) }
         }
+        // Zoom timeline: pulsanti espliciti (il pinch resta attivo sul canvas)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(SurfaceDark)
+                .padding(horizontal = 12.dp, vertical = 0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.Remove, "Zoom −", tint = Color.White,
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable { onZoom(0.8f, 400f) }
+                    .padding(4.dp),
+            )
+            Icon(
+                Icons.Filled.Add, "Zoom +", tint = Color.White,
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable { onZoom(1.25f, 400f) }
+                    .padding(4.dp),
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                "Pinch o ± per lo zoom",
+                color = TextSecondary,
+                fontSize = 10.sp,
+            )
+        }
         Box(
             Modifier
                 .fillMaxWidth()
-                .weight(1f)
                 .background(SurfaceDark)
                 .horizontalScroll(scroll),
         ) {
@@ -396,12 +426,12 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
             )
         }
 
-        // Action bar
+        // Action bar: 2 righe fisse — tutte le funzioni sempre visibili
         Row(
             Modifier
                 .fillMaxWidth()
                 .background(SurfaceDark)
-                .padding(vertical = 8.dp, horizontal = 4.dp),
+                .padding(vertical = 4.dp, horizontal = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             ActionIcon(Icons.Filled.IosShare, "Export", GreenBadge) { showExport = true }
@@ -413,6 +443,14 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
                 selection?.let { vm.delete(it) }
             }
             ActionIcon(Icons.AutoMirrored.Filled.Undo, "Undo", if (canUndo) Color.White else TextSecondary) { vm.undo() }
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(SurfaceDark)
+                .padding(vertical = 4.dp, horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
             ActionIcon(Icons.AutoMirrored.Filled.Redo, "Redo", if (canRedo) Color.White else TextSecondary) { vm.redo() }
             ActionIcon(Icons.Filled.Movie, "Vibe", if (vm.vibeDecisions.value.isNotEmpty()) GreenBadge else Color.White) {
                 showVibe = true
@@ -426,18 +464,22 @@ fun EditorScreen(projectIdRaw: String, onBack: () -> Unit) {
             ActionIcon(Icons.Filled.Tune, "Tools", Color.White) { showTools = true }
         }
 
-        // Trasporto: bookmark prev/next + frame step (±1 frame a 30fps)
+        // Trasporto compatto: bookmark prev/next + frame step (±1 frame a 30fps)
         Row(
             Modifier
                 .fillMaxWidth()
                 .background(SurfaceDark)
-                .padding(horizontal = 8.dp),
+                .padding(horizontal = 24.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            ActionIcon(Icons.Filled.SkipPrevious, "Bookmark −", Color.White) { vm.seekBookmark(-1) }
-            ActionIcon(Icons.Filled.KeyboardArrowLeft, "−1 frame", TextSecondary) { vm.stepPlayhead(-33) }
-            ActionIcon(Icons.Filled.KeyboardArrowRight, "+1 frame", TextSecondary) { vm.stepPlayhead(33) }
-            ActionIcon(Icons.Filled.SkipNext, "Bookmark +", Color.White) { vm.seekBookmark(1) }
+            Icon(Icons.Filled.SkipPrevious, "Bookmark −", tint = Color.White,
+                modifier = Modifier.size(30.dp).clickable { vm.seekBookmark(-1) }.padding(4.dp))
+            Icon(Icons.Filled.KeyboardArrowLeft, "−1 frame", tint = TextSecondary,
+                modifier = Modifier.size(30.dp).clickable { vm.stepPlayhead(-33) }.padding(4.dp))
+            Icon(Icons.Filled.KeyboardArrowRight, "+1 frame", tint = TextSecondary,
+                modifier = Modifier.size(30.dp).clickable { vm.stepPlayhead(33) }.padding(4.dp))
+            Icon(Icons.Filled.SkipNext, "Bookmark +", tint = Color.White,
+                modifier = Modifier.size(30.dp).clickable { vm.seekBookmark(1) }.padding(4.dp))
         }
 
         // Trim del clip selezionato (maniglie in/out)

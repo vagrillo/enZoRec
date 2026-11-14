@@ -868,7 +868,7 @@ private fun TimecodePill(elapsedMs: Long, recording: Boolean, paused: Boolean) {
     Box(
         Modifier
             .clip(RoundedCornerShape(18.dp))
-            .background(if (recording || paused) TimecodeRed else Color.Black)
+            .background(TimecodeRed)
             .border(1.5.dp, Color.White, RoundedCornerShape(18.dp))
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
