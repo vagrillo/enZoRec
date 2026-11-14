@@ -635,45 +635,68 @@ private fun TimelineCanvas(
             .width(widthPx.dp)
             .height(280.dp)
             .pointerInput(pxPerSec, clips) {
-                // Pinch-to-zoom con ancora sotto il dito.
-                detectTransformGestures { centroid, _, zoom, _ ->
-                    if (zoom != 1f) onZoom(zoom, centroid.x)
-                }
-            }
-            .pointerInput(pxPerSec, clips) {
-                // Ruler (y < 42): scrub libero del playhead con auto-scroll;
-                // tracce: tap = selezione/seek, trascina = pan della timeline.
+                // Gestore UNICO: pinch a 2 dita = zoom (stile iOS), 1 dito sul
+                // righello (y<42) = scrub del playhead, 1 dito sulle tracce =
+                // pan (delegato allo scroll orizzontale), tap sulle tracce =
+                // selezione/seek. Un solo handler = nessun conflitto di gesture.
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     val inRuler = down.position.y < 42f
+                    var mode = 0 // 0=indéciso, 1=scrub/pan, 2=pinch
                     var moved = false
                     var lastX = down.position.x
+                    var lastDist = 0f
                     if (inRuler) {
                         onScrub((down.position.x / pxPerSec * 1000).toLong())
                     }
                     do {
                         val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull() ?: break
-                        val delta = change.positionChange()
-                        if (inRuler && delta != Offset.Zero) {
-                            moved = true
-                            var x = change.position.x
-                            // Auto-scroll ai bordi per raggiungere il resto della timeline.
-                            if (x > size.width - 70) {
-                                x += 16f
-                                scrollState.dispatchRawDelta(16f)
-                            } else if (x < 70 && scrollState.value > 0) {
-                                scrollState.dispatchRawDelta(-16f)
-                                x -= 16f
+                        val pressed = event.changes.filter { it.pressed }
+                        if (pressed.isEmpty()) break
+                        if (pressed.size >= 2) {
+                            if (mode == 1 && inRuler && moved) {
+                                onScrubEnd((lastX / pxPerSec * 1000).toLong())
+                                moved = false
                             }
-                            lastX = x
-                            onScrub((x / pxPerSec * 1000).toLong())
+                            mode = 2
+                            val d = kotlin.math.hypot(
+                                pressed[0].position.x - pressed[1].position.x,
+                                pressed[0].position.y - pressed[1].position.y,
+                            )
+                            val cx = (pressed[0].position.x + pressed[1].position.x) / 2f
+                            if (lastDist > 0f && d != lastDist) {
+                                onZoom(d / lastDist, cx)
+                            }
+                            lastDist = d
+                            event.changes.forEach { it.consume() }
+                            continue
+                        }
+                        val change = pressed[0]
+                        val delta = change.positionChange()
+                        if (mode == 2) continue // dita rimaste dopo il pinch: ignora
+                        if (mode == 0 && delta != Offset.Zero) mode = 1
+                        if (mode == 1) {
+                            if (inRuler) {
+                                moved = true
+                                var x = change.position.x
+                                // Auto-scroll ai bordi per raggiungere tutta la timeline.
+                                if (x > size.width - 70) {
+                                    x += 16f
+                                    scrollState.dispatchRawDelta(16f)
+                                } else if (x < 70 && scrollState.value > 0) {
+                                    scrollState.dispatchRawDelta(-16f)
+                                    x -= 16f
+                                }
+                                lastX = x
+                                onScrub((x / pxPerSec * 1000).toLong())
+                            }
                             change.consume()
                         }
+                        // trascina sulle tracce: NON consumato → pan via horizontalScroll
                     } while (event.changes.any { it.pressed })
-                    if (inRuler && moved) {
+                    if (mode == 1 && inRuler && moved) {
                         onScrubEnd((lastX / pxPerSec * 1000).toLong())
-                    } else if (!inRuler && !moved) {
+                    } else if (mode == 0 && !inRuler) {
                         onTap(down.position.x, down.position.y)
                     }
                 }
